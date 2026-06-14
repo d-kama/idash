@@ -1,0 +1,68 @@
+version: '3'
+
+# Phase 0 では「いま動くタスク」のみ実装する。
+# 将来タスク（gen-types / build-front / deploy / batch / bff / front）は
+# 該当アプリの実装が入る後続フェーズで有効化する（下部にコメントで雛形を残置）。
+
+tasks:
+  setup:
+    desc: 依存解決（Python uv + TS pnpm）
+    cmds:
+      - uv sync
+      - pnpm install
+
+  lint:
+    desc: "Lint（Python: ruff / TS: Biome）"
+    cmds:
+      - uv run ruff check .
+      - pnpm exec biome lint .
+
+  format:
+    desc: "フォーマット（Python: ruff format / TS: Biome）"
+    cmds:
+      - uv run ruff format .
+      - pnpm exec biome format --write .
+
+  typecheck:
+    desc: "型チェック（Python: ty / TS: tsc）"
+    cmds:
+      - uv run ty check
+      - pnpm -r run typecheck
+
+  test:
+    desc: "テスト（pytest。テスト 0 件時の exit code 5 は成功扱い）"
+    cmds:
+      # pytest は収集テストが 0 件のとき exit code 5 を返す。Phase 0 では実テストが
+      # 無いため、ラッパースクリプトで 5 を成功として吸収する。
+      - sh scripts/pytest.sh
+
+  check:
+    desc: lint + typecheck + test を一括実行
+    cmds:
+      - task: lint
+      - task: typecheck
+      - task: test
+
+  # --- 将来タスク（後続フェーズで有効化）-------------------------------------
+  # gen-types:        # Pydantic → OpenAPI → TS 型（Phase 3/4）
+  #   cmds:
+  #     - uv run python -m bff.export_openapi > openapi.json
+  #     - pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o apps/frontend/src/api/generated/schema.d.ts
+  #
+  # build-front:      # フロントビルド（Phase 4）
+  #   deps: [gen-types]
+  #   cmds: [pnpm --filter @idash/frontend build]
+  #
+  # deploy:           # CDK デプロイ（Phase 5）
+  #   deps: [build-front]
+  #   cmds:
+  #     - pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
+  #
+  # batch:            # ローカル実行（Phase 2）
+  #   cmds: [uv run python -m batch.main]
+  #
+  # bff:              # ローカル実行（Phase 3）
+  #   cmds: [uv run uvicorn bff.main:app --reload]
+  #
+  # front:            # ローカル実行（Phase 4）
+  #   cmds: [pnpm --filter @idash/frontend dev]
