@@ -30,6 +30,26 @@
   - **Python** = `batch` / `bff` / 共有ライブラリ（`packages/*`）
   - **TypeScript** = `frontend` / `infra`（CDK）
 
+### 2.1.1 開発ツールチェーン（Phase 0 で確定）
+
+| 領域 | ツール | 補足 |
+|---|---|---|
+| Python ランタイム | **3.13**（`requires-python = ">=3.13"`） | Lambda 3.13 ベースイメージと一致 |
+| Python パッケージ/WS | **uv**（ワークスペース）、ビルドバックエンド **uv_build** | 仮想ルート＋単一 `uv.lock` |
+| Python lint/format | **ruff**（1ツールで lint+format） | black 不使用 |
+| Python 型チェック | **ty**（Astral 製） | 不調時は mypy へ退避可 |
+| Python テスト | **pytest ＋ pytest-cov** | dev dependency-group |
+| TS パッケージ/WS | **pnpm**（ワークスペース） | members: `apps/frontend`, `infra` |
+| TS lint/format | **Biome**（`biome.json`） | eslint/prettier 不使用 |
+| TS 型チェック | **tsc**（`tsconfig.base.json` 継承） | - |
+| infra テスト | **Vitest**（スナップショット） | `aws-cdk-lib/assertions` を使用 |
+| CDK アプリ実行 | **tsx**（`cdk.json` の `app`） | ts-node 不使用 |
+| タスクランナー | **go-task**（`Taskfile.yml`） | mise で版管理 |
+| ツール版固定 | **mise**（`mise.toml`） | python/node/uv/pnpm/task を pin |
+
+- パッケージ命名: import 名は接頭辞なし（`domain` 等）、配布名は `idash-*`、src レイアウト。
+- 内部依存は `[tool.uv.sources]` の `workspace = true` で配線（依存方向は §4 のグラフに準拠）。
+
 ### 2.2 技術スタック
 
 | コンポーネント | 技術 | AWS リソース |
@@ -75,7 +95,7 @@
 - **コンポーネント配置（確定。詳細はセクション 2.3.2 参照）**
   - ユースケース（収集/通知の手続き）… `packages/application`
   - 集計ロジック … `domain` のドメインサービス（ユースケースから委譲）
-  - 外部サイト接続クライアント / 通知クライアント … `repository`（`domain` のポートを実装する具象）
+  - 外部サイト接続クライアント / 通知クライアント … `infrastructure`（`domain` のポートを実装する具象）
 
 ### 2.3.2 アプリケーション層（ユースケース）
 
@@ -85,7 +105,7 @@
 - **依存（許可）**: `domain`（エンティティ / ドメインサービス / **ポート＝interface**）と `schemas`（入出力 DTO）**のみ**。
 - **依存（禁止）**: フレームワーク・ランタイム（**Lambda / boto3 / FastAPI / Mangum**）、および具象実装（Sheets / 外部サイト接続 / 通知の実体）。
   - これらは `apps`（アダプタ）側で**注入（DI）**する。専用パッケージにすることで「ユースケースに boto3/Mangum を import できない」を**パッケージ境界で物理的に強制**するのが A 採用の主目的。
-- **ポートの配置**: リポジトリ/外部サイト/通知のインターフェース（ポート）は **`domain`** に置く。具象は `repository` が `domain` のポートを実装する形となり、既存の「`repository` → `domain`」依存方向と整合する。
+- **ポートの配置**: リポジトリ/外部サイト/通知のインターフェース（ポート）は **`domain`** に置く。具象は `infrastructure` が `domain` のポートを実装する形となり、既存の「`infrastructure` → `domain`」依存方向と整合する。
 - **集計の置き場所**: 集計（純粋な業務計算）は**ユースケースではなく `domain` のドメインサービス**に置く。ユースケースは「取得→集計呼び出し→通知」の手続きだけに保ち、集計ルールは I/O 無しでテスト可能にする。
 
 #### ユースケースと app の対応（1:1）
@@ -98,9 +118,9 @@
 
 > 補足: ユースケースは app と 1:1 で app 間共有はないが、共有目的ではなく**フレームワーク非依存を構造で強制**する目的で専用パッケージ化している。
 
-#### `repository` パッケージの位置づけ（補足）
+#### `infrastructure` パッケージの位置づけ（補足）
 
-`repository` は Sheets だけでなく外部サイトクライアント・通知の具象も内包するため、実態は「外部システムとのアダプタ全般＝**インフラ層**」。当面は `repository` を広めに使い、肥大化したら `infrastructure` 系へ分割してもよい（**TODO: 分割要否は実装後に判断**）。
+`infrastructure` は Sheets だけでなく外部サイトクライアント・通知の具象も内包するため、実態は「外部システムとのアダプタ全般＝**インフラ層**」。Phase 0 で `repository` から `infrastructure` へ改称済み。当面は広めに使い、肥大化したらサブモジュールへ分割する（**TODO: 分割要否は実装後に判断**）。
 
 ### 2.4 Google Spreadsheet 利用方針
 
@@ -121,7 +141,8 @@
   - ③ 通知チャネルの認証情報（チャネル確定後）
 - **割り切り事項**: Parameter Store には**自動ローテーション機能がない**（手動更新で運用。今回の機密は手動更新で足りる想定）。
 - **取得方法**: Lambda から SSM `GetParameter`（`WithDecryption=true`）で取得し、モジュールスコープでキャッシュ。`common` に取得ユーティリティを集約。
-- **IAM**: 各 Lambda には必要なパラメータパスへの `ssm:GetParameter(s)` と、`aws/ssm` キーでの `kms:Decrypt` を最小権限で付与。
+- **IAM**: 各 Lambda には必要なパラメータへの `ssm:GetParameter(s)` を最小権限で付与（CDK の `grantRead` が生成）。暗号化キーは **AWS 管理キー `aws/ssm`** のためキーポリシーがアカウントへ復号を許可しており、**明示の `kms:Decrypt` 付与は不要**。
+- **CDK での参照（確定）**: SecureString は CDK/CloudFormation では作成しない（作成済みを運用）。CDK は `ssm.StringParameter.fromSecureStringParameterAttributes` で**パラメータ名からインポート**し、`grantRead` で IAM 付与。Lambda には取得したリソースの **ARN（`parameterArn`）** を環境変数で渡す（例: `SHEETS_SA_PARAM_ARN` / `SOURCE_LOGIN_PARAM_ARN`）。実行時はその ARN を `GetParameter` の `Name` に使用。
 - **TODO**:
   - 標準パラメータは1値**4KB 上限**。Google サービスアカウント JSON が超える場合の対処（Advanced は有料のため、値分割 / S3保管+鍵のみ Parameter Store 等の回避策を検討）。
   - パラメータ命名規約と環境（dev/stg/prod）プレフィックスの確定。
@@ -154,7 +175,7 @@ idash/
 │   ├── domain/                 # エンティティ / 集計=ドメインサービス / リポジトリ・ポート(interface)。他に依存しない
 │   ├── application/            # ★ ユースケース(orchestration)。domain と schemas にのみ依存
 │   ├── schemas/                # Pydantic スキーマ（API/バッチ I/O 共通）
-│   ├── repository/             # インフラ層: domain のポートを実装（Google Sheets / 外部サイト接続 / 通知の具象）
+│   ├── infrastructure/         # インフラ層: domain のポートを実装（Google Sheets / 外部サイト接続 / 通知の具象）
 │   └── common/                 # 設定 / Parameter Store取得 / ロギング / ユーティリティ
 ├── infra/                      # AWS CDK (TypeScript) → pnpm member
 │   ├── bin/app.ts
@@ -162,16 +183,26 @@ idash/
 │   │   ├── frontend-stack.ts
 │   │   ├── bff-stack.ts
 │   │   └── batch-stack.ts
-│   ├── cdk.json
+│   ├── test/                   # Vitest スナップショットテスト（__snapshots__ 同梱）
+│   ├── vitest.config.ts
+│   ├── cdk.json                # app = npx tsx bin/app.ts
 │   ├── package.json
 │   └── tsconfig.json
-├── pyproject.toml              # uv workspace 定義
+├── pyproject.toml              # uv workspace 定義（仮想ルート / ruff・ty・pytest 設定集約）
 ├── pnpm-workspace.yaml         # pnpm workspace 定義
-├── package.json
+├── package.json                # pnpm ルート（Biome / typescript devDeps）
 ├── uv.lock
-├── Taskfile.yml                # 横断タスク
+├── pnpm-lock.yaml
+├── mise.toml                   # ツール版固定（python/node/uv/pnpm/task）
+├── biome.json                  # TS lint + format
+├── tsconfig.base.json          # TS 共有設定
+├── scripts/                    # 横断スクリプト（pytest.sh 等）
+├── Taskfile.yml                # 横断タスク（go-task）
+├── docs/progress/              # 進捗管理ファイル（issue 単位）
 └── PROJECT_PLAN.md             # 本ドキュメント
 ```
+
+> 注: `packages/repository` は Phase 0 で **`packages/infrastructure`** へ改称済み（import 名 `infrastructure` / 配布名 `idash-infrastructure`）。
 
 ### ワークスペースのメンバー割り当て
 
@@ -189,8 +220,8 @@ idash/
                     ▲   ▲                        ▲
         implements │   │ depends                │ depends
                    │   │                        │
-          repository   application ──────────────┘
-        （ポートの具象）  （ユースケース: orchestration / schemas にも依存）
+      infrastructure   application ──────────────┘
+      （ポートの具象）  （ユースケース: orchestration / schemas にも依存）
                    ▲        ▲
         DI で具象注入│        │ ユースケース呼び出し
                    │        │
@@ -199,7 +230,7 @@ idash/
 
 - `domain` は他に依存しない（`common` のユーティリティ利用は許容範囲で判断）。
 - `application` は `domain`（ポート/ドメインサービス）と `schemas` のみに依存。フレームワーク・具象には依存しない。
-- `repository` は `domain` のポートを実装する具象（Sheets / 外部サイト / 通知）。
+- `infrastructure` は `domain` のポートを実装する具象（Sheets / 外部サイト / 通知）。
 - `apps` は具象を `application` のユースケースへ DI し、ユースケースを呼ぶだけの薄いアダプタ。**apps 同士は依存させない**。
 - frontend は bff の HTTP 契約（生成型）経由でのみ接続。
 
@@ -239,124 +270,112 @@ idash/
 
 ---
 
-## 6. 横断タスク（Taskfile, 確定の骨子）
+## 6. 横断タスク（Taskfile）
+
+> 「いま動くタスク」のみ実装し、各アプリ実装が入る後続フェーズで将来タスクを有効化する方針（将来タスクはコメント据置）。
+
+実装済み（Phase 0 + Phase 1 で順次追加）:
 
 ```yaml
 version: '3'
 tasks:
-  setup:
-    cmds:
-      - uv sync
-      - pnpm install
-  gen-types:        # Pydantic → OpenAPI → TS 型
-    cmds:
-      - uv run python -m bff.export_openapi > openapi.json
-      - pnpm --filter frontend exec openapi-typescript openapi.json -o apps/frontend/src/api/generated/schema.d.ts
-  build-front:
-    deps: [gen-types]
-    cmds: [pnpm --filter frontend build]
-  deploy:
-    deps: [build-front]
-    cmds:
-      - pnpm --filter infra exec cdk deploy --all --require-approval never
-  batch:            # ローカル実行
-    cmds: [uv run python -m batch.main]
-  bff:              # ローカル実行
-    cmds: [uv run uvicorn bff.main:app --reload]
-  front:            # ローカル実行
-    cmds: [pnpm --filter frontend dev]
+  setup:      # 依存解決
+    cmds: [uv sync, pnpm install]
+  lint:       # Python: ruff / TS: Biome
+    cmds: [uv run ruff check ., pnpm exec biome lint .]
+  format:     # Python: ruff format / TS: Biome
+    cmds: [uv run ruff format ., pnpm exec biome format --write .]
+  typecheck:  # Python: ty / TS: tsc（各パッケージの typecheck script）
+    cmds: [uv run ty check, pnpm -r run typecheck]
+  test:       # pytest（exit 5 は成功扱い）＋ infra Vitest（Phase 1〜）
+    cmds: [sh scripts/pytest.sh, pnpm --filter @idash/infra test]
+  synth:      # CDK synth（認証不要・デプロイ可能検証。Phase 1〜）
+    cmds: [pnpm --filter @idash/infra exec cdk synth]
+  check:      # lint + typecheck + test を一括
+    cmds: [{task: lint}, {task: typecheck}, {task: test}]
+```
+
+将来タスク（コメント据置 → 後続フェーズで有効化）: `gen-types`（Pydantic→OpenAPI→TS, Phase 5/6）/ `build-front`（Phase 6）/ フル `deploy`（`--all`, Phase 6）/ `batch`・`bff`・`front`（各ローカル実行）。
+
+実 deploy（認証後・参考）:
+
+```bash
+aws login
+pnpm --filter @idash/infra exec cdk bootstrap aws://<ACCOUNT_ID>/ap-northeast-1   # 初回のみ
+pnpm --filter @idash/infra exec cdk deploy --require-approval never
 ```
 
 ---
 
 ## 7. 実装計画（フェーズ別）
 
-> 各フェーズ内の「詳細」は未決定。TODO として段階的に確定する。
+> フェーズは「**インフラの足場 → CI/CD → 機能ごとに実装〜デプロイ**」の順で進める（機能は縦切り。各機能はデプロイ可能な状態まで一気通貫で仕上げる）。各フェーズ内の詳細 TODO は着手時に確定する。
 
-### Phase 0: リポジトリ初期化
-- [ ] モノレポのディレクトリ骨格を作成（セクション 3 の通り）
-- [ ] uv workspace 初期化（ルート `pyproject.toml` の `[tool.uv.workspace]`）
-- [ ] pnpm workspace 初期化（`pnpm-workspace.yaml`）
-- [ ] `packages/*` 各パッケージの `pyproject.toml` 雛形作成（内部依存は `tool.uv.sources` で `workspace = true`）
-- [ ] `Taskfile.yml` 配置
-- [ ] Lint / Formatter / 型チェック導入（Python: ruff / mypy、TS: eslint / tsc 等）※構成は **TODO**
-- [ ] `.gitignore`、`README` 整備
+### Phase 0: リポジトリ初期化（✅ 完了 / issue-1）
+- [x] モノレポのディレクトリ骨格、uv/pnpm ワークスペース、各 `pyproject.toml` / `package.json` 雛形、内部依存配線
+- [x] ツールチェーン導入（ruff / ty / pytest・pytest-cov、Biome / tsc、go-task、mise、uv_build）… §2.1.1
+- [x] `Taskfile.yml` / `.gitignore` / README / lockfile
 
-### Phase 1: 共有ライブラリ（packages）
-- [ ] `domain`: DC年金ドメインモデルの定義 … **TODO: モデル項目未決定**
-- [ ] `domain`: ポート（リポジトリ / 外部サイト / 通知の interface）定義 … **TODO: メソッドシグネチャ未決定**
-- [ ] `domain`: 集計ドメインサービス … **TODO: 集計ルール未決定**
-- [ ] `application`: ユースケース3種の雛形（`CollectPensionData` / `NotifySummary` / `GetVisualizationData`）。domain・schemas のみ依存、フレームワーク非依存を厳守
-- [ ] `schemas`: Pydantic スキーマ（API/バッチ I/O）… **TODO: 項目未決定**
-- [ ] `repository`: `domain` ポートの具象実装（Google Sheets: gspread 等）… **TODO: シート構造・API 未決定**
-- [ ] `common`: 設定ローダ、Parameter Store（SecureString）取得、ロギング基盤
+### Phase 1: インフラ動作確認（infra の足場）（issue-2）
+> アプリ・パッケージ実装は行わず、**infra に必要な最低限**で `cdk synth` グリーン＋ snapshot テストが通る土台を確認する。
+- [ ] infra のテスト/実行系を導入（**Vitest** スナップショット、**tsx**、`@types/node`）
+- [ ] `IdashBatchStack`（**collect のみ**）を実装: プレースホルダ Lambda（`Code.fromInline`）/ 予約同時実行=1 / timeout 5分 / memory 1024 / 明示 LogGroup(7日) / EventBridge Scheduler（JST 09:00）/ SSM `fromSecureStringParameterAttributes` インポート＋`grantRead`＋環境変数に ARN
+- [ ] `bin/app.ts`（batch のみ結線、env-agnostic account / region ap-northeast-1）
+- [ ] スナップショットテスト、`task synth` / `task check` グリーン
+- [ ] 実 deploy 手順を文書化（実 deploy はユーザー実施）
+- [ ] **TODO（後続で解消）**: EventBridge Scheduler L2/L1 の最終形、Lambda はプレースホルダ（Phase 3 でコンテナ化）、notify は Phase 4
 
-### Phase 2: バッチ（batch / 2機能）
-- [ ] `apps/batch` を1アプリ・1コンテナとして用意し、ハンドラを2つに分離
-- [ ] CDK 側で同一イメージから2 Lambda 関数を生成（`cmd` とスケジュールを個別指定）
-
-**Phase 2a: データ収集バッチ**
-- [ ] `handler_collect.py`（薄いアダプタ）。具象を `CollectPensionData` ユースケースへ DI して呼ぶ
-- [ ] 外部DC年金サイトへの接続・収集処理
-- [ ] 収集データを `repository`（Sheets）へ書き込み
-- [ ] **TODO: 対象サイト・収集項目・収集ロジックが未決定**
-- [ ] **TODO: 接続方式が未決定（公開API無し想定 → スクレイピング/ヘッドレスブラウザの要否）**
-- [ ] **TODO: 外部サイトのログイン認証情報の管理（Parameter Store SecureString）と多要素認証等の有無**
-- [ ] **TODO: スケジュール時刻の確定（JST）**
-- [ ] **TODO: Lambda 上限15分の評価（超える場合 Step Functions 検討）**
-- [ ] **TODO: 外部サイトの利用規約・自動アクセス可否の確認**
-
-**Phase 2b: サマリ通知バッチ**
-- [ ] `handler_notify.py`（薄いアダプタ）。具象を `NotifySummary` ユースケースへ DI して呼ぶ
-- [ ] ユースケース内: `repository` ポートから直近 N 日を取得 → 集計（`domain` ドメインサービス）→ 通知ポートで送信
-- [ ] **TODO: 通知チャネル未決定（メール/Slack/LINE 等）と認証情報管理**
-- [ ] **TODO: 集計内容・サマリ項目が未決定**
-- [ ] **TODO: N（対象日数）の既定値・指定方法（環境変数 or イベントペイロード）**
-- [ ] **TODO: 通知頻度・スケジュール時刻の確定（JST）**
-
-### Phase 3: BFF（bff）
-- [ ] FastAPI + Mangum の雛形（`main.py` に `handler = Mangum(app)`）
-- [ ] ルーターは薄いアダプタとし、具象を `GetVisualizationData` ユースケースへ DI して呼ぶ
-- [ ] `export_openapi.py`（OpenAPI 書き出しスクリプト）
-- [ ] **TODO: 提供するエンドポイント／レスポンス仕様が未決定**
-- [ ] **TODO: Sheets 直読み or キャッシュ層経由かの方針確定（セクション 9 参照）**
-
-### Phase 4: フロントエンド（frontend）
-- [ ] Vite + React + TS の雛形
-- [ ] OpenAPI からの型生成パイプライン疎通（`api/generated`）
-- [ ] API クライアント（`fetch('/api/...')` 前提）
-- [ ] **TODO: 画面構成・可視化内容（グラフ種別・指標）が未決定**
-
-### Phase 5: インフラ（infra / CDK TS）
-- [ ] CDK プロジェクト初期化（pnpm member）
-- [ ] `IdashBatchStack` 実装（EventBridge Scheduler + コンテナ Lambda）
-- [ ] `IdashBffStack` 実装（HTTP API + コンテナ Lambda + Parameter Store 読取権限）
-- [ ] `IdashFrontendStack` 実装（S3 + CloudFront 同一オリジン化 + SPA フォールバック）
-- [ ] **コスト暴発対策（セクション11）の実装**:
-  - [ ] Lambda 予約同時実行（BFF=3 / 収集=1 / 通知=1 目安）
-  - [ ] API Gateway スロットリング（rate/burst を小さく）
-  - [ ] CloudFront Geo 制限（日本のみ）
-  - [ ] CloudFront Functions による IP 制限（**TODO: 許可IPの確定。IP変動環境なら秘密トークン方式へ**）
-  - [ ] AWS Budgets アラート＋ Cost Anomaly Detection（**TODO: CDK化 or 手動**）
-- [ ] CloudWatch Logs 保持期間設定（7〜14日目安、コスト抑制）
-- [ ] **Lambda は VPC に入れない**（NAT Gateway 課金回避。セクション10参照）
-- [ ] `bin/app.ts` でスタック間プロパティ受け渡し
-- [ ] **TODO: 環境分離（dev/stg/prod）の方針が未決定**
-- [ ] **TODO: ドメイン/証明書（ACM）/独自ドメイン利用の有無が未決定**
-
-### Phase 6: Dockerfile（bff / batch）
-- [ ] `apps/bff/Dockerfile` … uv workspace 解決込み（ルートを context に `COPY packages/`）
-- [ ] `apps/batch/Dockerfile` … 同上（収集/通知の2ハンドラを内包。CMD は CDK 側で関数ごとに上書き）
-- [ ] `uv sync --package <name> --no-dev --frozen` で対象アプリ＋依存のみ解決
-- [ ] **TODO: 収集バッチがヘッドレスブラウザを使う場合のイメージ追加依存（ブラウザバイナリ等）**
-- [ ] **TODO: Python ランタイムバージョン確定（例: 3.12 / 3.13）**
-
-### Phase 7: CI/CD
-- [ ] **TODO: CI 基盤未決定（GitHub Actions 想定）**
+### Phase 2: CI/CD
+- [ ] CI 基盤（**GitHub Actions** 想定）。lint / typecheck / test / `cdk synth`（＋snapshot）を PR で実行
 - [ ] パスフィルタによるジョブ分割（`apps/batch` のみ変更時に frontend を再ビルドしない等）
   - 注意: `packages/*` 変更は batch/bff 両方へ波及（依存方向グラフ通り）
-- [ ] AWS 認証は OIDC 想定 … **TODO: 詳細未決定**
+- [ ] AWS 認証は **OIDC** 想定 … **TODO: ロール/信頼ポリシー詳細**
 - [ ] Docker ビルドコンテキストがルートのため CI キャッシュもルート基準
+- [ ] AWS Budgets アラート＋ Cost Anomaly Detection（**TODO: CDK化 or 手動**）
+
+### Phase 3: データ収集バッチ 実装〜デプロイ
+> 関連 `packages`（collect 経路）＋ `apps/batch` collect ＋ Dockerfile ＋ コンテナ Lambda 化 ＋ デプロイまで。
+- [ ] `domain`: DC年金ドメインモデル・ポート（リポジトリ/外部サイト interface）… **TODO: モデル項目・シグネチャ**
+- [ ] `schemas`: 収集 I/O の Pydantic スキーマ … **TODO: 項目**
+- [ ] `infrastructure`: `domain` ポートの具象（Google Sheets: gspread 等、外部サイトクライアント）… **TODO: シート構造・接続方式**
+- [ ] `common`: 設定ローダ / Parameter Store（SecureString）取得 / ロギング基盤
+- [ ] `application`: `CollectPensionData` ユースケース（domain・schemas のみ依存、フレームワーク非依存）
+- [ ] `apps/batch/handler_collect.py`（薄いアダプタ。具象を DI して呼ぶ）
+- [ ] `apps/batch/Dockerfile`（uv workspace 解決込み。ルートを context に `COPY packages/`、`uv sync --package batch --no-dev --frozen`）
+- [ ] `IdashBatchStack` の collect Lambda を **プレースホルダ → `DockerImageFunction.fromImageAsset` へ差替**（必要なら memory 2048 へ）。snapshot 更新
+- [ ] 収集スケジュール最終確定（JST）/ Lambda 上限15分の評価（超過時 Step Functions 検討）
+- [ ] 実デプロイ＆動作確認
+- [ ] **TODO: 対象サイト・収集項目・収集ロジック / 認証情報・多要素認証の有無 / 利用規約・自動アクセス可否**
+
+### Phase 4: サマリ通知バッチ 実装〜デプロイ
+> Sheets を介してのみ collect と連携（疎結合）。
+- [ ] `domain`: 集計ドメインサービス（I/O 無しでテスト可能）… **TODO: 集計ルール**
+- [ ] `domain`/`schemas`: 通知ポート・サマリ DTO
+- [ ] `infrastructure`: 通知クライアント具象（チャネル確定後）… **TODO: メール/Slack/LINE 等**
+- [ ] `application`: `NotifySummary` ユースケース（直近 N 日 read → 集計 → 通知 send）
+- [ ] `apps/batch/handler_notify.py`（薄いアダプタ）。同一イメージから2 Lambda 関数（cmd 違い）を CDK で生成
+- [ ] `IdashBatchStack` に notify Lambda ＋ 通知スケジュール（JST）＋ 通知認証情報の `grantRead`
+- [ ] 実デプロイ＆動作確認
+- [ ] **TODO: 通知チャネルと認証情報管理 / 集計内容・サマリ項目 / N の既定値・指定方法 / 通知頻度・時刻**
+
+### Phase 5: BFF 実装〜デプロイ
+- [ ] `application`: `GetVisualizationData` ユースケース、`schemas`: API レスポンス DTO
+- [ ] `apps/bff`: FastAPI + Mangum（`handler = Mangum(app)`）、ルーターは薄いアダプタ＋DI、`export_openapi.py`
+- [ ] `apps/bff/Dockerfile`、`IdashBffStack`（HTTP API + コンテナ Lambda + SSM 読取 + 予約同時実行=3 + スロットリング）
+- [ ] 型生成パイプライン（Pydantic → OpenAPI → TS、`gen-types` タスク有効化）
+- [ ] 実デプロイ＆動作確認
+- [ ] **TODO: エンドポイント/レスポンス仕様 / Sheets 直読み or キャッシュ層（§9）**
+
+### Phase 6: フロントエンド 実装〜デプロイ
+- [ ] `apps/frontend`: Vite + React + TS 本実装、生成型 import（`api/generated`）、API クライアント（`fetch('/api/...')`）
+- [ ] `IdashFrontendStack`（S3 + CloudFront 同一オリジン化 + SPA フォールバック + Geo 制限(JP) + CloudFront Functions IP 制限）
+- [ ] `bin/app.ts` でスタック間プロパティ受け渡し（API GW ドメイン → Frontend）、デプロイ順序（型生成 → フロントビルド → `cdk deploy`）
+- [ ] **TODO: 画面構成・可視化内容 / 許可IPの確定（IP変動時は秘密トークン方式）/ 環境分離(dev/stg/prod) / 独自ドメイン・ACM**
+
+### 横断（全フェーズ共通の確定事項）
+- **Lambda は VPC に入れない**（NAT Gateway 課金回避。§10）。
+- CloudWatch Logs は保持期間を設定（7〜14日目安、コスト抑制）。
+- コスト暴発対策（§11）は該当スタックの実装時に組み込む（予約同時実行＝Phase 1/3/4/5、API スロットリング＝Phase 5、Geo/IP 制限＝Phase 6、Budgets＝Phase 2）。
 
 ---
 
@@ -385,7 +404,7 @@ tasks:
 ### インフラ・運用
 - [ ] 環境分離（dev/stg/prod）と命名・アカウント戦略
 - [ ] 独自ドメイン / ACM 証明書の利用有無
-- [ ] Python ランタイムバージョン
+- [x] ~~Python ランタイムバージョン~~ → **3.13 に確定**（Phase 0）
 - [ ] 配信用キャッシュ層（S3-JSON）の採否（セクション 9）
 - [ ] アクセス制御の確定（セクション11）: 許可IPの確定、IP変動時の秘密トークン方式への切替要否
 - [ ] Budgets / Cost Anomaly Detection を CDK 化するか手動設定か
@@ -557,6 +576,13 @@ export class IdashBffStack extends Stack {
 ### 12.2 IdashBatchStack（infra/lib/batch-stack.ts）
 
 同一イメージから収集/通知の2関数を `cmd` 違いで生成し、スケジュールを個別に設定。
+
+> **Phase 1（issue-2）での差分**（下記は Phase 3/4 完了時の最終形。現フェーズの権威ある仕様は `docs/progress/issue-2.md`）:
+> - Lambda は **プレースホルダ zip**（`lambda.Function` + `Code.fromInline` / `Runtime.PYTHON_3_13`）。`DockerImageFunction` への差替は **Phase 3**。
+> - 実装は **collect のみ**（notify は Phase 4）。collect は memory **1024** / timeout **5分** / 予約同時実行 **1**。
+> - 収集スケジュールは **JST 09:00**。
+> - SSM は `fromSecureStringParameterAttributes` でインポート→`grantRead`→環境変数に **ARN**（`SHEETS_SA_PARAM_ARN` 等）。`kms:Decrypt` の明示付与は不要（`aws/ssm`）。
+> - 明示 `LogGroup`（保持 **7日** + `RemovalPolicy.DESTROY`）。
 
 ```typescript
 import { Stack, StackProps, Duration } from 'aws-cdk-lib';
@@ -765,7 +791,7 @@ RUN uv sync --package batch --no-dev --frozen
 CMD ["batch.handler_collect.handler"]
 ```
 
-> ヘッドレスブラウザ（Playwright 等）を収集で使う場合、ブラウザバイナリと依存の追加が必要（イメージ肥大化。セクション 10 のコスト・Phase 6 の TODO 参照）。
+> ヘッドレスブラウザ（Playwright 等）を収集で使う場合、ブラウザバイナリと依存の追加が必要（イメージ肥大化。セクション 10 のコスト・Phase 3 の TODO 参照）。
 
 ### 12.7 apps/bff/src/bff/main.py（FastAPI + Mangum + ユースケース DI）
 
@@ -776,7 +802,7 @@ from mangum import Mangum
 # application: ユースケース（フレームワーク非依存）
 from application.get_visualization_data import GetVisualizationData
 # repository: domain ポートの具象実装
-from repository.sheets import SheetsPensionRepository
+from infrastructure.sheets import SheetsPensionRepository
 
 app = FastAPI(title="idash BFF")
 
@@ -801,8 +827,8 @@ handler = Mangum(app)
 ```python
 # apps/batch/src/batch/handler_collect.py
 from application.collect_pension_data import CollectPensionData
-from repository.sheets import SheetsPensionRepository
-from repository.source_site import SourceSiteClient
+from infrastructure.sheets import SheetsPensionRepository
+from infrastructure.source_site import SourceSiteClient
 
 
 def handler(event, context):
@@ -817,8 +843,8 @@ def handler(event, context):
 ```python
 # apps/batch/src/batch/handler_notify.py
 from application.notify_summary import NotifySummary
-from repository.sheets import SheetsPensionRepository
-from repository.notifier import Notifier
+from infrastructure.sheets import SheetsPensionRepository
+from infrastructure.notifier import Notifier
 
 
 def handler(event, context):

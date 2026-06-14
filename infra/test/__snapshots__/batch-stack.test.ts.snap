@@ -1,0 +1,327 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
+{
+  "Parameters": {
+    "BootstrapVersion": {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": {
+    "CollectFn65CC4EC9": {
+      "DependsOn": [
+        "CollectFnServiceRoleDefaultPolicy62B683B3",
+        "CollectFnServiceRoleF762C82B",
+      ],
+      "Properties": {
+        "Code": {
+          "ZipFile": "def handler(event, context):
+    return {"status": "placeholder"}
+",
+        },
+        "Environment": {
+          "Variables": {
+            "ENV_NAME": "dev",
+            "SHEETS_SA_PARAM_ARN": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition",
+                  },
+                  ":ssm:ap-northeast-1:",
+                  {
+                    "Ref": "AWS::AccountId",
+                  },
+                  ":parameter/idash/dev/sheets-sa",
+                ],
+              ],
+            },
+            "SOURCE_LOGIN_PARAM_ARN": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition",
+                  },
+                  ":ssm:ap-northeast-1:",
+                  {
+                    "Ref": "AWS::AccountId",
+                  },
+                  ":parameter/idash/dev/source-login",
+                ],
+              ],
+            },
+          },
+        },
+        "FunctionName": "Idash-dev-Batch-CollectFn",
+        "Handler": "index.handler",
+        "LoggingConfig": {
+          "LogGroup": {
+            "Ref": "CollectFnLogGroup13AF6A1B",
+          },
+        },
+        "MemorySize": 1024,
+        "ReservedConcurrentExecutions": 1,
+        "Role": {
+          "Fn::GetAtt": [
+            "CollectFnServiceRoleF762C82B",
+            "Arn",
+          ],
+        },
+        "Runtime": "python3.13",
+        "Timeout": 300,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "CollectFnLogGroup13AF6A1B": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "LogGroupName": "/aws/lambda/Idash-dev-Batch-CollectFn",
+        "RetentionInDays": 7,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "CollectFnServiceRoleDefaultPolicy62B683B3": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:ap-northeast-1:",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/idash/dev/sheets-sa",
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:ap-northeast-1:",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/idash/dev/source-login",
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "CollectFnServiceRoleDefaultPolicy62B683B3",
+        "Roles": [
+          {
+            "Ref": "CollectFnServiceRoleF762C82B",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "CollectFnServiceRoleF762C82B": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "DailyCollectD2467D4E": {
+      "Properties": {
+        "FlexibleTimeWindow": {
+          "Mode": "OFF",
+        },
+        "ScheduleExpression": "cron(0 9 * * ? *)",
+        "ScheduleExpressionTimezone": "Asia/Tokyo",
+        "State": "ENABLED",
+        "Target": {
+          "Arn": {
+            "Fn::GetAtt": [
+              "CollectFn65CC4EC9",
+              "Arn",
+            ],
+          },
+          "RetryPolicy": {
+            "MaximumEventAgeInSeconds": 86400,
+            "MaximumRetryAttempts": 185,
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "SchedulerRoleForTarget3a8f0b61CD8EDC",
+              "Arn",
+            ],
+          },
+        },
+      },
+      "Type": "AWS::Scheduler::Schedule",
+    },
+    "SchedulerRoleForTarget3a8f0b61CD8EDC": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId",
+                  },
+                  "aws:SourceArn": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition",
+                        },
+                        ":scheduler:ap-northeast-1:",
+                        {
+                          "Ref": "AWS::AccountId",
+                        },
+                        ":schedule-group/default",
+                      ],
+                    ],
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "scheduler.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "SchedulerRoleForTarget3a8f0bDefaultPolicy3B6C633B": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "CollectFn65CC4EC9",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "CollectFn65CC4EC9",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "SchedulerRoleForTarget3a8f0bDefaultPolicy3B6C633B",
+        "Roles": [
+          {
+            "Ref": "SchedulerRoleForTarget3a8f0b61CD8EDC",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;

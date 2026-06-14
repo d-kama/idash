@@ -51,8 +51,40 @@ task setup     # 依存解決（uv sync && pnpm install）
 | `task lint` | Lint（Python: ruff / TS: Biome） |
 | `task format` | フォーマット（Python: ruff format / TS: Biome） |
 | `task typecheck` | 型チェック（Python: ty / TS: tsc） |
-| `task test` | テスト（pytest） |
+| `task test` | テスト（pytest + infra Vitest スナップショット） |
+| `task synth` | CDK synth（CloudFormation テンプレート生成。AWS 認証不要） |
 | `task check` | lint + typecheck + test を一括実行 |
 
 > gen-types / build-front / deploy などの将来タスクは後続フェーズで有効化する
 > （`Taskfile.yml` にコメントで雛形を残置）。
+
+## infra（AWS CDK）
+
+`infra/` は AWS CDK（TypeScript）。現状は `IdashBatchStack`（データ収集 Lambda）の
+最小実装。Lambda はプレースホルダ（Phase 3 でコンテナ化予定）。
+
+```bash
+# 構成確認（CloudFormation テンプレート生成。AWS 認証不要）
+task synth
+# または
+pnpm --filter @idash/infra exec cdk synth
+
+# スナップショットテスト
+pnpm --filter @idash/infra test
+```
+
+### デプロイ手順
+
+> SSM SecureString（`/idash/<env>/sheets-sa`・`/idash/<env>/source-login`）は
+> CDK では作成しない。デプロイ前に AWS コンソール / CLI で事前作成しておくこと。
+
+```bash
+# 1) 再認証（有効な AWS 認証情報を用意）
+aws login   # またはプロファイルを利用
+
+# 2) 初回のみ CDK ブートストラップ（ap-northeast-1）
+pnpm --filter @idash/infra exec cdk bootstrap aws://<ACCOUNT_ID>/ap-northeast-1
+
+# 3) デプロイ
+pnpm --filter @idash/infra exec cdk deploy --require-approval never
+```
