@@ -1,0 +1,38 @@
+name: Setup toolchain & install
+description: >-
+  mise でツールチェーン（python/node/uv/pnpm/task）を導入し、frozen install で
+  依存を解決する。uv / pnpm のキャッシュも復元する。check / deploy ジョブで共用。
+
+runs:
+  using: composite
+  steps:
+    # mise.toml を単一ソースに python/node/uv/pnpm/task を導入（ローカルと同一手順）
+    - uses: jdx/mise-action@v2
+
+    # uv のダウンロードキャッシュ（uv.lock 変化で更新）
+    - name: Cache uv
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/uv
+        key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
+        restore-keys: |
+          uv-${{ runner.os }}-
+
+    # pnpm store のパスを解決（mise 導入の pnpm を使用）
+    - name: Resolve pnpm store path
+      shell: bash
+      run: echo "PNPM_STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+
+    # pnpm store のキャッシュ（pnpm-lock.yaml 変化で更新）
+    - name: Cache pnpm store
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.PNPM_STORE_PATH }}
+        key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          pnpm-${{ runner.os }}-
+
+    # frozen install（lockfile ドリフトを検知して落とす）
+    - name: Install dependencies (frozen)
+      shell: bash
+      run: task setup:ci

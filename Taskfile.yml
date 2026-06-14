@@ -11,6 +11,12 @@ tasks:
       - uv sync
       - pnpm install
 
+  setup:ci:
+    desc: "CI 用の依存解決（frozen install。古い lockfile を検知して落とす）"
+    cmds:
+      - uv sync --frozen
+      - pnpm install --frozen-lockfile
+
   lint:
     desc: "Lint（Python: ruff / TS: Biome）"
     cmds:
