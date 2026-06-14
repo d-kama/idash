@@ -2,6 +2,8 @@
 python = "3.13"
 node = "24"
 uv = "latest"
-# pnpm は npm backend で導入（aqua backend は linux-x64 アセット名の不一致で失敗するため）
-"npm:pnpm" = "latest"
+# pnpm は npm backend で導入（aqua backend は linux-x64 アセット名の不一致で失敗するため）。
+# 版は固定する: latest だと CI が pnpm 11 系を引き込み、build script 承認機構
+# （onlyBuiltDependencies / allowBuilds）の差異で frozen install が壊れるため。
+"npm:pnpm" = "10.30.3"
 task = "latest"

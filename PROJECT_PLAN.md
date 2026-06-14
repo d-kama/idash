@@ -331,7 +331,7 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [ ] `.github/workflows/cicd.yml`: トリガ = `pull_request` / `push`(main) / `workflow_dispatch`
 - [ ] `check` ジョブ: `jdx/mise-action`（`mise.toml` を単一ソース）→ `task setup:ci`（frozen install）→ `task check` → `task synth`。`~/.cache/uv`（uv.lock keyed）＋ pnpm store（pnpm-lock keyed）をキャッシュ。`concurrency` で PR の進行中 run をキャンセル
 - [ ] `deploy` ジョブ: `needs: check`、`if` = push(main) または `workflow_dispatch`。`permissions: id-token: write`。`aws-actions/configure-aws-credentials`（role = `vars.AWS_DEPLOY_ROLE_ARN` / region ap-northeast-1）→ `cdk deploy --all --require-approval never`。deploy の `concurrency` は**非キャンセル**（CloudFormation 中断回避）
-- [ ] `Taskfile.yml`: `setup:ci` を追加（`uv sync --frozen` / `pnpm install --frozen-lockfile`）。ツール版は `mise.toml` の現状（latest 等）維持
+- [ ] `Taskfile.yml`: `setup:ci` を追加（`uv sync --frozen` / `pnpm install --frozen-lockfile`）。ツール版は `mise.toml` 管理（uv/node/task は緩め、**pnpm は 10.30.3 に固定**＝latest が CI で pnpm 11 を引き込み build script 承認機構が壊れたため）。build script 承認は `pnpm-workspace.yaml` の `onlyBuiltDependencies`（esbuild）
 - [ ] **確定事項**: AWS 認証は **GitHub OIDC（長期キー不使用）**。準備済み OIDC ロールが **CDK bootstrap ロールを `sts:AssumeRole`** する標準形。bootstrap 済み・ロール ARN は **repo Variable に保管済み**（AWS 側リソースは作成不要）
 - [ ] **見送り（後続で解消 / 不採用）**:
   - パスフィルタによるジョブ分割は **YAGNI**（重い build が入る Phase 3/6 で再検討）

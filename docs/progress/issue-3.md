@@ -115,7 +115,8 @@ SSM 未作成でも安全に deploy できる。
 | CD = `main` push 自動 ＋ `workflow_dispatch` 手動。env=dev 単一・region ap-northeast-1 |
 | 単一 `cicd.yml`：`check`（全トリガ）＋ `deploy`（`needs: check` / PR 以外） |
 | パスフィルタ分割は見送り（YAGNI / Phase 3・6 で再検討） |
-| ツール導入は `jdx/mise-action`（`mise.toml` 単一ソース）。ツール版は latest 維持 |
+| ツール導入は `jdx/mise-action`（`mise.toml` 単一ソース） |
+| **pnpm は 10.30.3 に固定**（当初 latest だったが CI で pnpm 11.6.0 を引き込み、build script 承認機構の差異で frozen install が壊れたため。grill の「ツール版 latest 維持」を pnpm に限り見直し）。build script 承認は `pnpm-workspace.yaml` の `onlyBuiltDependencies: [esbuild]` |
 | 再現性は `setup:ci`（`uv sync --frozen` / `pnpm install --frozen-lockfile`）のみ |
 | uv（`~/.cache/uv`）+ pnpm store キャッシュを有効化 |
 | 認証は GitHub OIDC（長期キー不使用）→ ADR 0001 |
