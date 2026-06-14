@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "typecheck": "node ./scripts/typecheck.mjs",
+    "typecheck": "tsc --noEmit",
     "synth": "cdk synth",
     "diff": "cdk diff",
     "deploy": "cdk deploy",

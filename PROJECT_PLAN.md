@@ -184,7 +184,6 @@ idash/
 │   │   ├── bff-stack.ts
 │   │   └── batch-stack.ts
 │   ├── test/                   # Vitest スナップショットテスト（__snapshots__ 同梱）
-│   ├── scripts/typecheck.mjs
 │   ├── vitest.config.ts
 │   ├── cdk.json                # app = npx tsx bin/app.ts
 │   ├── package.json
