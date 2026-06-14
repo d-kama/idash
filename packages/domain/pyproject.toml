@@ -1,0 +1,14 @@
+[project]
+name = "idash-domain"
+version = "0.0.0"
+description = "idash domain layer (entities / domain services / ports). Depends on nothing."
+requires-python = ">=3.13"
+dependencies = []
+
+[build-system]
+requires = ["uv_build>=0.10.0,<0.11.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "domain"
+module-root = "src"

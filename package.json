@@ -1,0 +1,10 @@
+{
+  "name": "idash-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "idash monorepo root (pnpm workspace)",
+  "devDependencies": {
+    "@biomejs/biome": "^2",
+    "typescript": "^5"
+  }
+}

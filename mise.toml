@@ -1,0 +1,7 @@
+[tools]
+python = "3.13"
+node = "24"
+uv = "latest"
+# pnpm は npm backend で導入（aqua backend は linux-x64 アセット名の不一致で失敗するため）
+"npm:pnpm" = "latest"
+task = "latest"

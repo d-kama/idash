@@ -1,0 +1,16 @@
+{
+  "name": "@idash/infra",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "typecheck": "node ./scripts/typecheck.mjs"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2",
+    "constructs": "^10"
+  },
+  "devDependencies": {
+    "aws-cdk": "^2",
+    "typescript": "^5"
+  }
+}
