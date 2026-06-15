@@ -7,11 +7,11 @@ runs:
   using: composite
   steps:
     # mise.toml を単一ソースに python/node/uv/pnpm/task を導入（ローカルと同一手順）
-    - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
+    - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
 
     # uv のダウンロードキャッシュ（uv.lock 変化で更新）
     - name: Cache uv
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ~/.cache/uv
         key: uv-${{ runner.os }}-${{ hashFiles('uv.lock') }}
@@ -25,7 +25,7 @@ runs:
 
     # pnpm store のキャッシュ（pnpm-lock.yaml 変化で更新）
     - name: Cache pnpm store
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       with:
         path: ${{ env.PNPM_STORE_PATH }}
         key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
