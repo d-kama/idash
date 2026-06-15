@@ -23,7 +23,9 @@ jobs:
     name: lint / typecheck / test / synth
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
       - run: task check
       - run: task synth
@@ -31,8 +33,10 @@ jobs:
   deploy:
     name: cdk deploy (dev)
     needs: check
-    # PR 以外（push:main / workflow_dispatch）でのみ deploy
-    if: ${{ github.event_name != 'pull_request' }}
+    # PR 以外（push:main / workflow_dispatch）かつ main ref のときだけ deploy。
+    # workflow_dispatch を非 main ブランチから起動しても、ここで skip して
+    # AWS への assume を試みない（OIDC trust が main 限定なのと二重防御）。
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     # deploy は直列・非キャンセル（CloudFormation の中断を避ける）
     concurrency:
@@ -42,10 +46,12 @@ jobs:
       id-token: write # OIDC 短命トークン発行
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
       - uses: ./.github/actions/setup
       # 準備済み OIDC ロールを assume（静的キーは持たない）。実名が違えば Variable 名を差替
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-1

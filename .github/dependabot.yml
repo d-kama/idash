@@ -1,0 +1,16 @@
+version: 2
+updates:
+  # GitHub Actions を SHA pin で固定しているため、Dependabot で陳腐化を防ぐ。
+  # workflow（.github/workflows）と共用 composite（.github/actions/setup）の両方を対象。
+  - package-ecosystem: github-actions
+    directories:
+      - "/" # .github/workflows/ 配下（checkout / configure-aws-credentials）
+      - "/.github/actions/setup" # 共用 composite（mise-action / cache）
+    schedule:
+      interval: weekly
+    groups:
+      # 更新 PR をまとめてノイズを抑える
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci

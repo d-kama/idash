@@ -120,6 +120,7 @@ SSM 未作成でも安全に deploy できる。
 | 再現性は `setup:ci`（`uv sync --frozen` / `pnpm install --frozen-lockfile`）のみ |
 | uv（`~/.cache/uv`）+ pnpm store キャッシュを有効化 |
 | 認証は GitHub OIDC（長期キー不使用）→ ADR 0001 |
+| **PR レビュー対応（CodeRabbit）**: ①deploy の `if` に `github.ref == 'refs/heads/main'` を追加（非 main dispatch をクリーン skip）②`actions/checkout` に `persist-credentials: false` ③全外部 Action を SHA pin（現メジャー v4/v4/v4/v2）＋ `.github/dependabot.yml`（github-actions 週次）で陳腐化防止。メジャー更新は Dependabot の個別 PR で実施。④日付指摘は JST のため対応不要（CodeRabbit 撤回済み） |
 
 ---
 
