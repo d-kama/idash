@@ -1,0 +1,59 @@
+name: CI/CD
+
+# CI（PR 検証）と CD（main 自動 deploy ＋ 手動）を 1 ワークフローで束ねる。
+# - check : すべてのトリガで lint/typecheck/test/synth を実行
+# - deploy: push(main) または workflow_dispatch のときだけ、check 成功後に実行
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# PR は進行中 run をキャンセルして無駄を省く。push/dispatch（= deploy 経路）は
+# キャンセルしない（CloudFormation 中断回避。deploy ジョブ側でも直列化する）。
+concurrency:
+  group: cicd-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: lint / typecheck / test / synth
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: task check
+      - run: task synth
+
+  deploy:
+    name: cdk deploy (dev)
+    needs: check
+    # PR 以外（push:main / workflow_dispatch）かつ main ref のときだけ deploy。
+    # workflow_dispatch を非 main ブランチから起動しても、ここで skip して
+    # AWS への assume を試みない（OIDC trust が main 限定なのと二重防御）。
+    if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    # deploy は直列・非キャンセル（CloudFormation の中断を避ける）
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    permissions:
+      id-token: write # OIDC 短命トークン発行
+      contents: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # 準備済み OIDC ロールを assume（静的キーは持たない）。実名が違えば Variable 名を差替
+      - uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4.3.1
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-northeast-1
+      # CDK は bootstrap ロールを assume して deploy（対象は現状 IdashBatchStack のみ）
+      - run: pnpm --filter @idash/infra exec cdk deploy --all --require-approval never

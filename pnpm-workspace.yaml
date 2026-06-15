@@ -1,3 +1,9 @@
 packages:
   - "apps/frontend"
   - "infra"
+
+# build script を実行してよい依存の許可リスト。未承認の build script があると CI
+# （pnpm が CI を検知）で install が失敗するため、esbuild（vite/vitest/tsx 経由）を
+# 明示承認する。pnpm の版は mise.toml で固定しているため、この設定形式で安定する。
+onlyBuiltDependencies:
+  - esbuild
