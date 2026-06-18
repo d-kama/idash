@@ -124,14 +124,14 @@ def clock() -> FixedClock:
 def sample_asset() -> PortfolioAsset:
     return PortfolioAsset(
         base_date=date(2026, 6, 18),
-        products=[
+        products=(
             ProductAsset(
                 name="ファンドA",
                 contribution=Money(100_000),
                 profit_loss=Money(20_000),
                 valuation=Money(120_000),
-            )
-        ],
+            ),
+        ),
     )
 
 

@@ -87,7 +87,11 @@ class PortfolioAsset:
     """ある基準日時点の全 ProductAsset の集合。"""
 
     base_date: date
-    products: list[ProductAsset]
+    products: tuple[ProductAsset, ...]
+
+    def __post_init__(self) -> None:
+        # frozen でも list 内部は可変。値オブジェクトの不変性のため tuple に固定する。
+        object.__setattr__(self, "products", tuple(self.products))
 
     def total(self) -> AssetTotal:
         """全 ProductAsset の3項目をそれぞれ Money 加算で合算する。"""
