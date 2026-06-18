@@ -92,7 +92,7 @@ packages/application/src/application/
 - `Money(yen: int)`: `parse(text)`（`¥1,234,567`/`-80,000円`/`△80,000`/`▲...` を解釈、不可なら `ValueError`、会計表記 △/▲ は負）、`__add__`/`__sub__`、`is_positive`/`is_negative`、`format()`/`signed()`
 - `ProductAsset(name: str, contribution: Money, profit_loss: Money, valuation: Money)`
 - `AssetTotal(contribution: Money, profit_loss: Money, valuation: Money)`
-- `PortfolioAsset(base_date: date, products: list[ProductAsset])` + `total() -> AssetTotal`（各商品3項目を Money 加算で合算）
+- `PortfolioAsset(base_date: date, products: tuple[ProductAsset, ...])` + `total() -> AssetTotal`（各商品3項目を Money 加算で合算）
 - `AssetRepository(Protocol)`: **`save(asset: PortfolioAsset) -> None` のみ**（read 系は Phase 4）
 
 ### domain/collection.py
@@ -244,7 +244,7 @@ class CollectionUseCase(CollectionInputBoundary):
 | 2026-06-17 | `CollectionUseCase` に save ステップ・`repository` 依存を補完（Notion サンプルの欠落を是正）。`execute(url, credentials) -> PortfolioAsset`、save は with を抜けてから | ユーザー |
 | 2026-06-17 | `CollectionInputBoundary`(Protocol) を設け、`CollectionUseCase` が実装（クリーンアーキ準拠） | ユーザー |
 | 2026-06-17 | 値オブジェクトは stdlib frozen dataclass。Money は parse/四則/format/signed を同梱。AssetTotal は3項目合計のみ | ユーザー |
-| 2026-06-17 | エラー証跡の項目名は `content`（`str | None`）に統一。ScraperError は domain に置く | ユーザー |
+| 2026-06-17 | エラー証跡の項目名は `content`（`str \| None`）に統一。ScraperError は domain に置く | ユーザー |
 | 2026-06-17 | 対象サイトに対話的 MFA は無い前提。Credentials = user_id / password / birthdate | ユーザー |
 | 2026-06-17 | Credentials はマスク `__repr__`（案A）。domain の依存ゼロ維持のため pydantic（SecretStr）不使用 | ユーザー |
 | 2026-06-17 | `AssetRepository` は本フェーズ `save` のみ。read 系は Phase 4（後方互換追加） | ユーザー |
@@ -254,6 +254,7 @@ class CollectionUseCase(CollectionInputBoundary):
 | 2026-06-18 | **（計画外の必須変更）** ルート `pyproject.toml` の dev 依存グループにワークスペース全メンバーを追加し `[tool.uv.sources]` で `workspace = true` 配線、`uv.lock` 再生成。理由: プレーンな `uv sync`（`task setup`/`setup:ci`）は依存されないメンバーを prune するため、`uv run pytest`/`ty` が `domain` 等を import 解決できず受入条件「task check 緑」を満たせない。代替案（`uv run --all-packages` を各タスクへ付与）は `task check` 内で lint→typecheck→test 間に install/uninstall の thrash を起こすため不採用。frozen install で検証済み | 実装者 |
 | 2026-06-18 | `Money.format()` = `¥1,234,567`/`-¥80,000`/`¥0`、`Money.signed()` = 正に明示的 `+`（`+¥…`）・ゼロは符号なし。Notion/issue-8 で出力文字列が未確定だったため日本円表示慣例で確定（消費者は Phase 4 のため手戻りリスク低） | 実装者 |
 | 2026-06-18 | **（レビュー指摘・当初計画を是正）** application テストの「ライフサイクル順序 `open→login→…→close`」アサートは廃止。理由: その順序は具象アダプタの契約（ADR-0002）であり application の関心事ではない＝実装詳細への結合になる。application は「セッションを開く→scrape→後始末（close）」のみ観測し、順序検証は infra 具象 Scraper テストへ移管 | ユーザー指摘・実装者 |
+| 2026-06-18 | **（CodeRabbit 指摘対応）** `PortfolioAsset.products` を `tuple[ProductAsset, ...]` に変更し `__post_init__` で正規化。frozen でも `list` は中身が可変で値オブジェクトの不変性が破れるため。これは不変性の確保であり、実行時型バリデーション不追加の方針（ty + 境界パース依拠）とは別物 | CodeRabbit 指摘・実装者 |
 | 2026-06-18 | 値オブジェクトの実行時バリデーションは**追加しない（現状維持）**。担保は (a) `ty` による静的型検出（CI で fail。誤った型の構築を実証済み）、(b) 外部不正データは境界（`Money.parse` / 後続 infra アダプタ）でパース・検証。domain は zero-dep の軽量 VO を維持し pydantic / `__post_init__` ガードは入れない | ユーザー |
 
 ---
