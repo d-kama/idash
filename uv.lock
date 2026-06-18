@@ -270,6 +270,13 @@ source = { virtual = "." }
 
 [package.dev-dependencies]
 dev = [
+    { name = "idash-application" },
+    { name = "idash-batch" },
+    { name = "idash-bff" },
+    { name = "idash-common" },
+    { name = "idash-domain" },
+    { name = "idash-infrastructure" },
+    { name = "idash-schemas" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
@@ -280,6 +287,13 @@ dev = [
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "idash-application", editable = "packages/application" },
+    { name = "idash-batch", editable = "apps/batch" },
+    { name = "idash-bff", editable = "apps/bff" },
+    { name = "idash-common", editable = "packages/common" },
+    { name = "idash-domain", editable = "packages/domain" },
+    { name = "idash-infrastructure", editable = "packages/infrastructure" },
+    { name = "idash-schemas", editable = "packages/schemas" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
