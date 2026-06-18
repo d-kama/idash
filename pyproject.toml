@@ -17,7 +17,27 @@ dev = [
     "ty",
     "pytest",
     "pytest-cov",
+    # ワークスペース全メンバーを dev に editable 投入する。これにより `uv sync` 後の
+    # `uv run`（pytest / ty / ruff）が src レイアウトの各パッケージを import 解決できる。
+    # プレーンな `uv sync` は依存されていないメンバーを prune するため、テスト・型チェックを
+    # 成立させるにはここで dev 依存として配線する必要がある。
+    "idash-domain",
+    "idash-application",
+    "idash-schemas",
+    "idash-infrastructure",
+    "idash-common",
+    "idash-batch",
+    "idash-bff",
 ]
+
+[tool.uv.sources]
+idash-domain = { workspace = true }
+idash-application = { workspace = true }
+idash-schemas = { workspace = true }
+idash-infrastructure = { workspace = true }
+idash-common = { workspace = true }
+idash-batch = { workspace = true }
+idash-bff = { workspace = true }
 
 # ----------------------------------------------------------------------------
 # ツール設定はルートに集約する（各メンバーパッケージは設定を持たない）。
@@ -43,7 +63,7 @@ select = ["E", "F", "I", "UP", "B"]
 python-version = "3.13"
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib"
+addopts = "--import-mode=importlib --cov=domain --cov=application --cov-report=term-missing"
 testpaths = ["packages", "apps"]
-# Phase 0 では実テストを書かない。テスト 0 件時の exit code 5 は Taskfile 側で吸収する。
-# カバレッジ（pytest-cov）は実コードが入る Phase 1 以降で addopts に --cov を足す。
+# テスト 0 件時の exit code 5 は Taskfile 側（scripts/pytest.sh）で吸収する。
+# カバレッジ（pytest-cov）はレポートのみ。閾値（--cov-fail-under）は設けない。
