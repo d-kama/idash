@@ -17,6 +17,7 @@ dev = [
     "ty",
     "pytest",
     "pytest-cov",
+    "moto",
     # ワークスペース全メンバーを dev に editable 投入する。これにより `uv sync` 後の
     # `uv run`（pytest / ty / ruff）が src レイアウトの各パッケージを import 解決できる。
     # プレーンな `uv sync` は依存されていないメンバーを prune するため、テスト・型チェックを
@@ -63,7 +64,7 @@ select = ["E", "F", "I", "UP", "B"]
 python-version = "3.13"
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --cov=domain --cov=application --cov-report=term-missing"
+addopts = "--import-mode=importlib --cov=domain --cov=application --cov=infrastructure --cov=common --cov=batch --cov-report=term-missing"
 testpaths = ["packages", "apps"]
 # テスト 0 件時の exit code 5 は Taskfile 側（scripts/pytest.sh）で吸収する。
 # カバレッジ（pytest-cov）はレポートのみ。閾値（--cov-fail-under）は設けない。
