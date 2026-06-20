@@ -259,6 +259,7 @@ PR #9（issue-8）でデータ収集バッチの **抽象層（`domain` + `appli
 | 2 | birthdate のフォーム入力フォーマット（`%Y%m%d` 等） | 中 | フェーズ4.3 |
 | 3 | chromium / chromedriver の具体ピン版（umihico リリースに合わせる） | 中 | フェーズ4.1 |
 | 4 | `start_url` 実値（SSM `source-login` に格納） | 低 | フェーズ4.4 |
+| 5 | `_default_chrome_factory` の `--user-data-dir`（`tempfile.mkdtemp()`）を driver 終了時に解放（warm `/tmp` 圧迫対策）。live 専用・未テストのためコンテナ化検証と併せて実装（PR#10 CodeRabbit 指摘） | 中 | フェーズ4.1 |
 
 ### 決定事項
 | 日付 | 決定事項 | 決定者 |
@@ -276,6 +277,12 @@ PR #9（issue-8）でデータ収集バッチの **抽象層（`domain` + `appli
 | 2026-06-18 | Dockerfile（後続）: 版ピン chromium+chromedriver 同梱（umihico パターン、ADR-0003） | ユーザー |
 | 2026-06-18 | 抽出: `page_source` → BeautifulSoup 純粋関数 `extract_portfolio(html, base_date)`。`beautifulsoup4`+`lxml` 追加 | ユーザー |
 | 2026-06-18 | 過渡ステップ `_select_transferring_out_plan`（「転出処理中」プラン選択）を含める（移行進行中、TODO 明記） | ユーザー |
+| 2026-06-20 | PR#10 レビュー対応: `Settings`→`CollectSettings` にリネーム（collect 固有フィールドのため。notify/BFF は各自定義） | ユーザー |
+| 2026-06-20 | PR#10 レビュー対応: `Any` を排し本番型を厳格化（sheets=`gspread.Client/Worksheet`、scraper=`WebDriver`、handler factory=`CollectionInputBoundary`）。テストは注入点で `cast` 回避 | ユーザー |
+| 2026-06-20 | PR#10 レビュー対応: scraper の `_Clock`/`_SystemClock` 重複を排し `domain.collection.Clock` + `infrastructure.clock.SystemClock` を再利用（層内依存は可） | ユーザー |
+| 2026-06-20 | PR#10 レビュー対応: `driver.quit()` を `_safe_quit` で握り潰し、後始末失敗が主例外（`ScraperError`）を上書きしないようにする（ADR-0002 整合） | ユーザー |
+| 2026-06-20 | PR#10 レビュー対応: lifecycle テストを後始末契約の3シナリオ（正常 / ログイン失敗 / scrape 失敗）＋ quit 失敗時の主例外保持に整理。全順序アサートは削除 | ユーザー |
+| 2026-06-20 | PR#10 レビュー対応: `tempfile.mkdtemp()` 解放（C2）と `extract_portfolio` の境界チェック（C1）はフェーズ4へ先送り（live 専用 / 暫定セレクタのため） | ユーザー |
 
 ---
 
