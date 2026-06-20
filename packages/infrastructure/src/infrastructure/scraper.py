@@ -19,16 +19,16 @@ import tempfile
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import date, datetime
-from typing import Any, Protocol
-from zoneinfo import ZoneInfo
+from datetime import date
 
 from bs4 import BeautifulSoup
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.common.by import By
+from selenium.webdriver.remote.webdriver import WebDriver
 
 from domain.asset import Money, PortfolioAsset, ProductAsset
-from domain.collection import Credentials, ScraperError, ScraperSession
+from domain.collection import Clock, Credentials, ScraperError, ScraperSession
+from infrastructure.clock import SystemClock
 
 
 def extract_portfolio(html: str, *, base_date: date) -> PortfolioAsset:
@@ -64,20 +64,9 @@ def extract_portfolio(html: str, *, base_date: date) -> PortfolioAsset:
     return PortfolioAsset(base_date=base_date, products=tuple(products))
 
 
-_JST = ZoneInfo("Asia/Tokyo")
-
-
-class _Clock(Protocol):
-    def now(self) -> datetime: ...
-
-
-class _SystemClock:
-    def now(self) -> datetime:
-        return datetime.now(_JST)
-
-
-# ScraperConfig を受け取り、起動済みの WebDriver（相当）を返すファクトリ。
-DriverFactory = Callable[["ScraperConfig"], Any]
+# ScraperConfig を受け取り、起動済みの WebDriver を返すファクトリ。
+# テストではダミー driver を `cast(WebDriver, ...)` で注入する（注入点でのみ回避）。
+DriverFactory = Callable[["ScraperConfig"], WebDriver]
 
 
 @dataclass(frozen=True)
@@ -93,7 +82,7 @@ class ScraperConfig:
     select_transferring_plan: bool = True
 
 
-def _default_chrome_factory(config: ScraperConfig) -> Any:
+def _default_chrome_factory(config: ScraperConfig) -> WebDriver:
     """版ピン chromium/chromedriver で headless Chrome を起動する（ADR-0003）。
 
     実起動はライブ依存（Lambda コンテナ）のため、決定的テストでは driver_factory を
@@ -116,6 +105,9 @@ def _default_chrome_factory(config: ScraperConfig) -> Any:
     ):
         options.add_argument(argument)
     options.add_argument(f"--user-agent={config.user_agent}")
+    # TODO(フェーズ4.1): この一時ディレクトリは driver 終了時に解放していない。
+    # Lambda ウォーム実行で /tmp を圧迫するため、コンテナ化・実起動の検証と併せて
+    # driver.quit() 時の cleanup を実装する（live 専用・現状未テストのため先送り）。
     tmp_dir = tempfile.mkdtemp()
     options.add_argument(f"--user-data-dir={tmp_dir}")
     options.binary_location = config.chrome_binary_location
@@ -133,7 +125,7 @@ def _format_birthdate(birthdate: date) -> str:
 class _SeleniumScraperSession:
     """ログイン済みドライバを用いて資産ページを取得する ScraperSession 具象。"""
 
-    def __init__(self, driver: Any, clock: _Clock) -> None:
+    def __init__(self, driver: WebDriver, clock: Clock) -> None:
         self._driver = driver
         self._clock = clock
 
@@ -154,7 +146,7 @@ class _SeleniumScraperSession:
             ) from error
 
 
-def _safe_page_source(driver: Any) -> str | None:
+def _safe_page_source(driver: WebDriver) -> str | None:
     try:
         return driver.page_source
     except Exception:
@@ -169,11 +161,11 @@ class SeleniumScraper:
         config: ScraperConfig,
         *,
         driver_factory: DriverFactory = _default_chrome_factory,
-        clock: _Clock | None = None,
+        clock: Clock | None = None,
     ) -> None:
         self._config = config
         self._driver_factory = driver_factory
-        self._clock = clock if clock is not None else _SystemClock()
+        self._clock = clock if clock is not None else SystemClock()
 
     @contextmanager
     def session(self, url: str, credentials: Credentials) -> Iterator[ScraperSession]:
@@ -182,15 +174,25 @@ class SeleniumScraper:
             self._open_and_login(driver, url, credentials)
         except BaseException:
             # login/確立に失敗したらその場でクローズして送出（yield 前なので finally に入らない）。
-            driver.quit()
+            self._safe_quit(driver)
             raise
         try:
             yield _SeleniumScraperSession(driver, self._clock)
         finally:
             self._logout_quietly(driver)
-            driver.quit()
+            self._safe_quit(driver)
 
-    def _open_and_login(self, driver: Any, url: str, credentials: Credentials) -> None:
+    @staticmethod
+    def _safe_quit(driver: WebDriver) -> None:
+        # 後始末。quit 失敗は握り潰して主例外（特に ScraperError）を隠さない（ADR-0002）。
+        # CollectionUseCase は ScraperError を捕捉してエラーページを保存するため、ここで
+        # 例外型が変わるとその経路が失われる。
+        try:
+            driver.quit()
+        except Exception:
+            pass
+
+    def _open_and_login(self, driver: WebDriver, url: str, credentials: Credentials) -> None:
         driver.get(url)
         driver.find_element(By.NAME, "userId").send_keys(credentials.user_id)
         driver.find_element(By.NAME, "password").send_keys(credentials.password)
@@ -203,7 +205,7 @@ class SeleniumScraper:
             self._select_transferring_out_plan(driver)
 
     @staticmethod
-    def _is_logged_in(driver: Any) -> bool:
+    def _is_logged_in(driver: WebDriver) -> bool:
         try:
             driver.find_element(By.LINK_TEXT, "ログアウト")
         except NoSuchElementException:
@@ -211,7 +213,7 @@ class SeleniumScraper:
         return True
 
     @staticmethod
-    def _select_transferring_out_plan(driver: Any) -> None:
+    def _select_transferring_out_plan(driver: WebDriver) -> None:
         # TODO(フェーズ4.3): プラン移行完了後に削除する過渡ステップ。
         rows = driver.find_elements(By.CSS_SELECTOR, "table.inputTable tbody tr")
         for row in rows:
@@ -222,7 +224,7 @@ class SeleniumScraper:
                 return
 
     @staticmethod
-    def _logout_quietly(driver: Any) -> None:
+    def _logout_quietly(driver: WebDriver) -> None:
         # 後始末。失敗は握り潰して主例外を隠さない（ADR-0002）。
         try:
             driver.find_element(By.LINK_TEXT, "ログアウト").click()

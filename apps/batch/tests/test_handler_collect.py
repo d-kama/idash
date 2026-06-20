@@ -102,7 +102,7 @@ def test_build_use_case_wires_credentials_and_url(monkeypatch) -> None:
     for key, value in ENV.items():
         monkeypatch.setenv(key, value)
 
-    settings = handler_collect.Settings.from_env()
+    settings = handler_collect.CollectSettings.from_env()
     source = SOURCE_JSON
     sheets_cfg = SHEETS_JSON
 

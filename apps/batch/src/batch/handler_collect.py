@@ -14,10 +14,10 @@ from collections.abc import Callable
 from datetime import date
 from typing import Any
 
-from application.collection import CollectionUseCase
+from application.collection import CollectionInputBoundary, CollectionUseCase
 from common import ssm
 from common.logging import get_logger
-from common.settings import Settings
+from common.settings import CollectSettings
 from domain.collection import Credentials
 from infrastructure.clock import SystemClock
 from infrastructure.error_store import S3ErrorPageStore
@@ -32,12 +32,13 @@ _DEFAULT_CHROME_DRIVER = "/opt/chromedriver/chromedriver"
 
 # (settings, source, sheets_cfg) -> (use_case, url, credentials)
 UseCaseFactory = Callable[
-    [Settings, dict[str, Any], dict[str, Any]], "tuple[Any, str, Credentials]"
+    [CollectSettings, dict[str, Any], dict[str, Any]],
+    "tuple[CollectionInputBoundary, str, Credentials]",
 ]
 
 
 def build_use_case(
-    settings: Settings,
+    settings: CollectSettings,
     source: dict[str, Any],
     sheets_cfg: dict[str, Any],
 ) -> tuple[CollectionUseCase, str, Credentials]:
@@ -74,7 +75,7 @@ def handler(
     use_case_factory: UseCaseFactory = build_use_case,
 ) -> dict[str, Any]:
     """EventBridge から起動される収集エントリポイント。"""
-    settings = Settings.from_env()
+    settings = CollectSettings.from_env()
     source = ssm.get_secure_json(settings.source_login_param)
     sheets_cfg = ssm.get_secure_json(settings.sheets_sa_param)
 

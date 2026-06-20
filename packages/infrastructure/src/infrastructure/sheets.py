@@ -12,11 +12,14 @@ from dataclasses import dataclass
 from typing import Any
 
 import gspread
+from gspread import Client, Worksheet
+from gspread.utils import ValueInputOption
 
 from domain.asset import PortfolioAsset
 
-# credentials(SA JSON) を受け取り gspread クライアント相当を返すファクトリ。
-ClientFactory = Callable[[dict[str, Any]], Any]
+# credentials(SA JSON) を受け取り gspread クライアントを返すファクトリ。
+# テストではダミークライアントを `cast(Client, ...)` で注入する（注入点でのみ回避）。
+ClientFactory = Callable[[dict[str, Any]], Client]
 
 
 @dataclass(frozen=True)
@@ -39,9 +42,9 @@ class SheetsAssetRepository:
     ) -> None:
         self._config = config
         self._client_factory = client_factory
-        self._worksheet: Any | None = None
+        self._worksheet: Worksheet | None = None
 
-    def _worksheet_handle(self) -> Any:
+    def _worksheet_handle(self) -> Worksheet:
         # 認証・シート解決はコールドスタート時のみ（取得結果をキャッシュ）。
         if self._worksheet is None:
             client = self._client_factory(self._config.credentials)
@@ -60,4 +63,4 @@ class SheetsAssetRepository:
             ]
             for product in asset.products
         ]
-        self._worksheet_handle().append_rows(rows, value_input_option="RAW")
+        self._worksheet_handle().append_rows(rows, value_input_option=ValueInputOption.raw)

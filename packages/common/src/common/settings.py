@@ -20,8 +20,12 @@ def _require(env: Mapping[str, str], key: str) -> str:
 
 
 @dataclass(frozen=True)
-class Settings:
-    """収集バッチの実行に必要な環境変数。"""
+class CollectSettings:
+    """収集バッチの実行に必要な環境変数。
+
+    フィールドは収集バッチ固有。サマリ通知バッチ / BFF はそれぞれ別の設定
+    dataclass を定義する（`common` は SSM / logging / `_require` 等の共通ヘルパを提供する）。
+    """
 
     env_name: str
     sheets_sa_param: str
@@ -29,8 +33,8 @@ class Settings:
     error_page_bucket: str
 
     @classmethod
-    def from_env(cls, env: Mapping[str, str] | None = None) -> Settings:
-        """環境変数（既定で `os.environ`）から Settings を構築する。"""
+    def from_env(cls, env: Mapping[str, str] | None = None) -> CollectSettings:
+        """環境変数（既定で `os.environ`）から CollectSettings を構築する。"""
         env = os.environ if env is None else env
         return cls(
             env_name=_require(env, "ENV_NAME"),

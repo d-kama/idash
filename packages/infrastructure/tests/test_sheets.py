@@ -1,6 +1,9 @@
 """SheetsAssetRepository は商品ごと1行を円整数で append する（AssetRepository の具象）。"""
 
 from datetime import date
+from typing import cast
+
+from gspread import Client
 
 from domain.asset import Money, PortfolioAsset, ProductAsset
 from infrastructure.sheets import SheetsAssetRepository, SheetsConfig
@@ -64,9 +67,10 @@ def _make_repo() -> tuple[SheetsAssetRepository, _FakeClient, _FakeWorksheet, di
     client = _FakeClient(spreadsheet)
     captured: dict[str, object] = {}
 
-    def factory(credentials: dict[str, object]) -> _FakeClient:
+    def factory(credentials: dict[str, object]) -> Client:
         captured["credentials"] = credentials
-        return client
+        # ダミークライアントを本番型の注入点でのみ cast で適合させる。
+        return cast(Client, client)
 
     repo = SheetsAssetRepository(CONFIG, client_factory=factory)
     return repo, client, worksheet, captured

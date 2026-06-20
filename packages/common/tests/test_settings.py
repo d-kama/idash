@@ -1,8 +1,8 @@
-"""Settings は os.environ（または注入された mapping）から設定値を読む。"""
+"""CollectSettings は os.environ（または注入された mapping）から設定値を読む。"""
 
 import pytest
 
-from common.settings import Settings
+from common.settings import CollectSettings
 
 ENV = {
     "ENV_NAME": "dev",
@@ -13,7 +13,7 @@ ENV = {
 
 
 def test_from_env_reads_all_values() -> None:
-    settings = Settings.from_env(ENV)
+    settings = CollectSettings.from_env(ENV)
 
     assert settings.env_name == "dev"
     assert settings.sheets_sa_param == "/idash/dev/sheets-sa"
@@ -25,4 +25,4 @@ def test_from_env_missing_required_raises() -> None:
     incomplete = {k: v for k, v in ENV.items() if k != "SOURCE_LOGIN_PARAM_ARN"}
 
     with pytest.raises(KeyError, match="SOURCE_LOGIN_PARAM_ARN"):
-        Settings.from_env(incomplete)
+        CollectSettings.from_env(incomplete)
