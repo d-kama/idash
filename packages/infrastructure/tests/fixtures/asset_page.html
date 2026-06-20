@@ -1,0 +1,49 @@
+<!doctype html>
+<!--
+  抽出テスト用 fixture。旧 scraping_nrk の提供セレクタ／行・セル対応に準拠して構成する。
+  実 HTML との差異はライブ検証フェーズ（issue-8-concrete フェーズ4.3）で詰める。
+  対応: 商品コンテナ #prodInfo .infoDetailUnit_02.pc_mb30 / 商品名 .infoHdWrap00 /
+        tr[2] td[2]=資産評価額・tr[2] 最終td=拠出金額累計 / tr[5] 最終td=評価損益
+-->
+<html lang="ja">
+  <head><meta charset="utf-8" /><title>資産状況</title></head>
+  <body>
+    <header>
+      <a href="/logout">ログアウト</a>
+    </header>
+
+    <main id="mainContent">
+      <div id="prodInfo">
+        <div class="infoDetailUnit_02 pc_mb30">
+          <div class="infoHdWrap00"> ファンドA（国内株式） </div>
+          <table class="infoTable">
+            <tbody>
+              <tr><th>項目</th><th>口数</th><th>基準価額</th><th>区分</th></tr>
+              <tr><td>明細</td><td>1,000</td><td>1,200</td><td>—</td></tr>
+              <tr><td>金額</td><td>口数</td><td>¥120,000</td><td>取得</td><td>¥100,000</td></tr>
+              <tr><td>内訳1</td><td>—</td></tr>
+              <tr><td>内訳2</td><td>—</td></tr>
+              <tr><td>評価損益</td><td>¥20,000</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="infoDetailUnit_02 pc_mb30">
+          <div class="infoHdWrap00"> ファンドB（外国債券） </div>
+          <table class="infoTable">
+            <tbody>
+              <tr><th>項目</th><th>口数</th><th>基準価額</th><th>区分</th></tr>
+              <tr><td>明細</td><td>500</td><td>840</td><td>—</td></tr>
+              <tr><td>金額</td><td>口数</td><td>¥42,000</td><td>取得</td><td>¥50,000</td></tr>
+              <tr><td>内訳1</td><td>—</td></tr>
+              <tr><td>内訳2</td><td>—</td></tr>
+              <tr><td>評価損益</td><td>△8,000</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="total">合計 ¥162,000</div>
+    </main>
+  </body>
+</html>

@@ -14,7 +14,10 @@
 
 ## Consequences
 
-- 具象（Selenium 等）および抽象テストの Fake は、このライフサイクル契約（open→login→scrape→logout→close、
-  login 失敗時はその場で close）を守る必要がある。
+- 具象（Selenium 等）および抽象テストの Fake が守るべき本質は**後始末の契約**であり、各操作の網羅的な
+  発生順そのものではない。具体的には (1) 正常終了・scrape 失敗のいずれでも `logout → close` の順で後始末する、
+  (2) login 失敗時は `logout` を呼ばず `close` のみ、(3) 後始末（logout / close）の失敗は握り潰して主例外を
+  隠さない、の3点。`open→login→scrape` は通常フローの説明であって、テストで全ステップの順序を逐一
+  アサートする必要はない（後始末契約に焦点を当てる）。
 - ユースケースはセッション本体内で `scrape()` のみを呼び、失敗時に `ScraperError.content`（捕捉済みページ）から
   `ErrorPage` を組んで保存する。
