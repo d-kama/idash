@@ -56,8 +56,9 @@ export class IdashBatchStack extends Stack {
     });
 
     // CloudWatch Logs を明示作成（保持 7 日 + スタック削除時に破棄）。
+    // logGroupName は付けない（CDK 自動命名）。永続化が要るリソース（S3 等）以外は
+    // 自動命名に寄せる方針。Lambda へは logGroup 経由（LoggingConfig）で割り当てる。
     const collectLogGroup = new LogGroup(this, 'CollectFnLogGroup', {
-      logGroupName: `/aws/lambda/${id}-CollectFn`,
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
@@ -68,8 +69,10 @@ export class IdashBatchStack extends Stack {
 
     // データ収集 Lambda（版ピン chrome 同梱のコンテナイメージ）。
     // runtime / handler はイメージの CMD が決めるため指定しない。
+    // functionName は付けない（CDK 自動命名）。固定名にすると PackageType 変更
+    // （Zip⇄Image）等の置換時に新旧で名前衝突し deploy が詰まるため。参照は ARN /
+    // オブジェクト経由なので物理名は不要。
     const collectFn = new DockerImageFunction(this, 'CollectFn', {
-      functionName: `${id}-CollectFn`,
       code: DockerImageCode.fromImageAsset(repoRoot, {
         file: 'apps/batch/Dockerfile',
         // `.dockerignore` を asset フィンガープリントにも効かせる。これがないと

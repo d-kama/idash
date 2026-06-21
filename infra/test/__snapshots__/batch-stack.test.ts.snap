@@ -61,7 +61,6 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
             },
           },
         },
-        "FunctionName": "Idash-dev-Batch-CollectFn",
         "LoggingConfig": {
           "LogGroup": {
             "Ref": "CollectFnLogGroup13AF6A1B",
@@ -83,7 +82,6 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
     "CollectFnLogGroup13AF6A1B": {
       "DeletionPolicy": "Delete",
       "Properties": {
-        "LogGroupName": "/aws/lambda/Idash-dev-Batch-CollectFn",
         "RetentionInDays": 7,
       },
       "Type": "AWS::Logs::LogGroup",
