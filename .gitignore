@@ -32,6 +32,10 @@ cdk.out/
 .env
 .env.*
 !.env.example
+# ローカル検証ランナー（scripts/run_collect_local.py）の認証情報 JSON
+*.local.json
+# 同ランナーが書く失敗時ページ（個人情報を含み得るため追跡しない）
+/errorpages/
 
 # ---- OS / エディタ ----
 .DS_Store
