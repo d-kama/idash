@@ -18,7 +18,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:983ec0a771ce6abe074a2be3797d8e5491aa19f6705e761066c3f152611d3d2d",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:fe9c4410f0904087fdb715f66b591fcd1674d822ec8799ce612e9c953bc3ec1d",
           },
         },
         "Environment": {
@@ -62,11 +62,6 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
           },
         },
         "FunctionName": "Idash-dev-Batch-CollectFn",
-        "ImageConfig": {
-          "Command": [
-            "batch.handler_collect.handler",
-          ],
-        },
         "LoggingConfig": {
           "LogGroup": {
             "Ref": "CollectFnLogGroup13AF6A1B",

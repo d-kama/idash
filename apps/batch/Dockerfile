@@ -11,8 +11,8 @@
 #   /opt/chromedriver/chromedriver
 #
 # ビルドコンテキストはモノレポルート（COPY packages/ のため）。CDK は
-# DockerImageCode.fromImageAsset(root, { file: 'apps/batch/Dockerfile', cmd }) で
-# このイメージをビルドし、関数ごとに CMD を上書きする。
+# DockerImageCode.fromImageAsset(root, { file: 'apps/batch/Dockerfile' }) で
+# このイメージをビルドする。
 
 # ---------------------------------------------------------------------------
 # stage 1: CfT chrome-headless-shell + chromedriver をダウンロードして配置する。
@@ -96,5 +96,5 @@ RUN uv sync --package idash-batch --no-dev --frozen
 ENV PATH="/var/task/.venv/bin:${PATH}"
 ENV PYTHONPATH="/var/task/.venv/lib/python3.13/site-packages"
 
-# 既定 CMD（収集）。CDK 側で関数ごとに上書きする。
+# CMD は収集ハンドラ。
 CMD ["batch.handler_collect.handler"]

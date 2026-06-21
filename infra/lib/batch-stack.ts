@@ -67,12 +67,11 @@ export class IdashBatchStack extends Stack {
     const repoRoot = path.join(__dirname, '../..');
 
     // データ収集 Lambda（版ピン chrome 同梱のコンテナイメージ）。
-    // runtime / handler はイメージ（CMD）が決めるため指定しない。
+    // runtime / handler はイメージの CMD が決めるため指定しない。
     const collectFn = new DockerImageFunction(this, 'CollectFn', {
       functionName: `${id}-CollectFn`,
       code: DockerImageCode.fromImageAsset(repoRoot, {
         file: 'apps/batch/Dockerfile',
-        cmd: ['batch.handler_collect.handler'],
         // `.dockerignore` を asset フィンガープリントにも効かせる。これがないと
         // build context 外の dev ファイル（scripts/ や *.local.json 等）の変更でも
         // image asset ハッシュが揺れ、Vitest snapshot が不要に壊れる。
