@@ -66,5 +66,4 @@ python-version = "3.13"
 [tool.pytest.ini_options]
 addopts = "--import-mode=importlib --cov=domain --cov=application --cov=infrastructure --cov=common --cov=batch --cov-report=term-missing"
 testpaths = ["packages", "apps"]
-# テスト 0 件時の exit code 5 は Taskfile 側（scripts/pytest.sh）で吸収する。
 # カバレッジ（pytest-cov）はレポートのみ。閾値（--cov-fail-under）は設けない。

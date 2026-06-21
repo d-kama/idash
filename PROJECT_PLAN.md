@@ -196,7 +196,7 @@ idash/
 ├── mise.toml                   # ツール版固定（python/node/uv/pnpm/task）
 ├── biome.json                  # TS lint + format
 ├── tsconfig.base.json          # TS 共有設定
-├── scripts/                    # 横断スクリプト（pytest.sh 等）
+├── scripts/                    # 横断スクリプト（run_collect_local.py 等）
 ├── Taskfile.yml                # 横断タスク（go-task）
 ├── docs/progress/              # 進捗管理ファイル（issue 単位）
 └── PROJECT_PLAN.md             # 本ドキュメント
@@ -287,8 +287,8 @@ tasks:
     cmds: [uv run ruff format ., pnpm exec biome format --write .]
   typecheck:  # Python: ty / TS: tsc（各パッケージの typecheck script）
     cmds: [uv run ty check, pnpm -r run typecheck]
-  test:       # pytest（exit 5 は成功扱い）＋ infra Vitest（Phase 1〜）
-    cmds: [sh scripts/pytest.sh, pnpm --filter @idash/infra test]
+  test:       # pytest ＋ infra Vitest（Phase 1〜）
+    cmds: [uv run pytest, pnpm --filter @idash/infra test]
   synth:      # CDK synth（認証不要・デプロイ可能検証。Phase 1〜）
     cmds: [pnpm --filter @idash/infra exec cdk synth]
   check:      # lint + typecheck + test を一括
