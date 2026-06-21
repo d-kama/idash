@@ -79,7 +79,7 @@ infrastructure        application（+ schemas に依存）
 
 ### infra（AWS CDK / TypeScript）
 
-`infra/` は CDK。現状は `IdashBatchStack`（データ収集 Lambda）のみで、**Lambda は `Code.fromInline` のプレースホルダ**（コンテナ化は後続フェーズ）。リージョンは `ap-northeast-1`、収集は日次 JST 09:00。
+`infra/` は CDK。現状は `IdashBatchStack`（データ収集 Lambda）のみ。**Lambda はコンテナイメージ**（`DockerImageFunction`、版ピン chrome を同梱した `apps/batch/Dockerfile` を build context = リポジトリルートでビルド）。失敗時のエラーページ証跡を保存する S3（`ErrorPageBucket`）を併設。リージョンは `ap-northeast-1`、収集は日次 JST 09:00。
 
 - スタックのエントリは `infra/bin/app.ts`、`--context env=<name>`（既定 `dev`）でスタック名・SSM パラメータ名を切替。
 - **SSM SecureString（`/idash/<env>/sheets-sa`・`/idash/<env>/source-login`）は CDK では作成しない**（CloudFormation が SecureString 非対応）。デプロイ前に AWS 側で手動作成し、名前でインポートする。
