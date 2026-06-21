@@ -50,6 +50,7 @@ export class IdashBatchStack extends Stack {
     //   綺麗に保つ。destroy 前にオブジェクトが残る場合は手動でバケットを空にする運用）。
     const errorPageBucket = new Bucket(this, 'ErrorPageBucket', {
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true, // 非 HTTPS アクセスを拒否（AWS S3.5 ベストプラクティス）。
       lifecycleRules: [{ expiration: Duration.days(30) }],
       removalPolicy: RemovalPolicy.DESTROY,
     });

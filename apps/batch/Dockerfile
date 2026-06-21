@@ -78,8 +78,10 @@ RUN dnf install -y \
 COPY --from=chrome /opt/chrome /opt/chrome
 COPY --from=chrome /opt/chromedriver /opt/chromedriver
 
-# uv（依存解決ツール）を導入。
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+# uv（依存解決ツール）を導入。版は固定する（latest はビルド再現性を損なう）。
+# ワークスペース各 pyproject.toml の build-backend 制約 uv_build>=0.10.0,<0.11.0 と
+# uv.lock を整合させるため、その範囲内のローカル検証済み版にピンする。
+COPY --from=ghcr.io/astral-sh/uv:0.10.0 /uv /bin/uv
 
 # uv workspace を解決する。ルート pyproject.toml / uv.lock とワークスペースメンバー
 # （packages/* + apps/batch）を COPY し、batch のみ（--no-dev / --frozen）で同期する。

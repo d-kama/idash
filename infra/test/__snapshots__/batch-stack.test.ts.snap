@@ -18,7 +18,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:b9736d3011f44b823bffbc94ca358dce9e24339614b5d41c4cbe06b4a5b9de2e",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:983ec0a771ce6abe074a2be3797d8e5491aa19f6705e761066c3f152611d3d2d",
           },
         },
         "Environment": {
@@ -274,6 +274,53 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       },
       "Type": "AWS::S3::Bucket",
       "UpdateReplacePolicy": "Delete",
+    },
+    "ErrorPageBucketPolicy8EF9E940": {
+      "Properties": {
+        "Bucket": {
+          "Ref": "ErrorPageBucketFD04CE26",
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false",
+                },
+              },
+              "Effect": "Deny",
+              "Principal": {
+                "AWS": "*",
+              },
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "ErrorPageBucketFD04CE26",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "ErrorPageBucketFD04CE26",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::S3::BucketPolicy",
     },
     "SchedulerRoleForTarget3a8f0b61CD8EDC": {
       "Properties": {
