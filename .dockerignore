@@ -1,0 +1,36 @@
+# Docker ビルドコンテキスト（= リポジトリルート）の除外定義。
+#
+# collect Lambda のコンテナイメージは build context = リポジトリルートでビルドする
+# （apps/batch/Dockerfile が COPY packages/ するため）。CDK の DockerImageCode は
+# IgnoreMode.DOCKER でこのファイルを読み、image asset のフィンガープリント計算にも
+# 同じ除外を適用する。コンテキストに環境依存ファイル（.git / node_modules / .venv /
+# cdk.out / __pycache__ / エディタやツールのローカル成果物）が混ざると、ローカルと
+# CI で image asset ハッシュがずれ、infra の CloudFormation snapshot テストが壊れる。
+#
+# 方式: まず全除外し、ビルドに必要なものだけ再許可する（許可リスト方式）。
+# コンテキストに入るのは Dockerfile が COPY する対象だけになるので、生成物や新しい
+# ツールのキャッシュが増えても除外漏れが起きず、ハッシュは構造的に揺れない。
+
+# いったん全部除外する。
+*
+
+# Dockerfile が COPY する対象だけ再許可する。
+!pyproject.toml
+!uv.lock
+!packages
+!apps
+
+# apps は batch だけビルドに要る（bff / frontend は collect イメージに不要）。
+apps/*
+!apps/batch
+
+# 再許可したツリーに紛れ込む生成物を最後に除外する（後勝ちで効く）。
+**/__pycache__
+**/*.pyc
+**/*.pyo
+**/*.egg-info
+**/.venv
+**/.ruff_cache
+**/.pytest_cache
+**/.mypy_cache
+**/.coverage

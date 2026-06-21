@@ -38,9 +38,7 @@ tasks:
   test:
     desc: "テスト（pytest + infra Vitest）"
     cmds:
-      # pytest は収集テストが 0 件のとき exit code 5 を返す。Phase 0 では実テストが
-      # 無いため、ラッパースクリプトで 5 を成功として吸収する。
-      - sh scripts/pytest.sh
+      - uv run pytest
       - pnpm --filter @idash/infra test
 
   synth:

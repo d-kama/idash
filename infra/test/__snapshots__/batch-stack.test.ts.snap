@@ -17,13 +17,16 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       ],
       "Properties": {
         "Code": {
-          "ZipFile": "def handler(event, context):
-    return {"status": "placeholder"}
-",
+          "ImageUri": {
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:fe9c4410f0904087fdb715f66b591fcd1674d822ec8799ce612e9c953bc3ec1d",
+          },
         },
         "Environment": {
           "Variables": {
             "ENV_NAME": "dev",
+            "ERROR_PAGE_BUCKET": {
+              "Ref": "ErrorPageBucketFD04CE26",
+            },
             "SHEETS_SA_PARAM_ARN": {
               "Fn::Join": [
                 "",
@@ -59,13 +62,13 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
           },
         },
         "FunctionName": "Idash-dev-Batch-CollectFn",
-        "Handler": "index.handler",
         "LoggingConfig": {
           "LogGroup": {
             "Ref": "CollectFnLogGroup13AF6A1B",
           },
         },
-        "MemorySize": 1024,
+        "MemorySize": 2048,
+        "PackageType": "Image",
         "ReservedConcurrentExecutions": 1,
         "Role": {
           "Fn::GetAtt": [
@@ -73,8 +76,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
             "Arn",
           ],
         },
-        "Runtime": "python3.13",
-        "Timeout": 300,
+        "Timeout": 600,
       },
       "Type": "AWS::Lambda::Function",
     },
@@ -140,6 +142,40 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
                   ],
                 ],
               },
+            },
+            {
+              "Action": [
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "ErrorPageBucketFD04CE26",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "ErrorPageBucketFD04CE26",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
             },
           ],
           "Version": "2012-10-17",
@@ -212,6 +248,74 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
         },
       },
       "Type": "AWS::Scheduler::Schedule",
+    },
+    "ErrorPageBucketFD04CE26": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "ExpirationInDays": 30,
+              "Status": "Enabled",
+            },
+          ],
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true,
+        },
+      },
+      "Type": "AWS::S3::Bucket",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "ErrorPageBucketPolicy8EF9E940": {
+      "Properties": {
+        "Bucket": {
+          "Ref": "ErrorPageBucketFD04CE26",
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false",
+                },
+              },
+              "Effect": "Deny",
+              "Principal": {
+                "AWS": "*",
+              },
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "ErrorPageBucketFD04CE26",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "ErrorPageBucketFD04CE26",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::S3::BucketPolicy",
     },
     "SchedulerRoleForTarget3a8f0b61CD8EDC": {
       "Properties": {

@@ -26,7 +26,7 @@ task check       # lint + typecheck + test を一括（CI と同じ検証）
 task lint        # ruff check + biome lint
 task format      # ruff format + biome format --write
 task typecheck   # ty check（Python）+ tsc（TS, pnpm -r run typecheck）
-task test        # pytest（scripts/pytest.sh 経由）+ infra Vitest
+task test        # pytest + infra Vitest
 task synth       # CDK synth（CloudFormation 生成、AWS 認証不要）
 ```
 
@@ -42,7 +42,7 @@ pnpm --filter @idash/infra test
 pnpm --filter @idash/infra run test:update   # スナップショット更新（-u）
 ```
 
-`task test` は `scripts/pytest.sh` 経由で pytest を呼ぶ。これは**テスト収集 0 件時の exit code 5 を成功扱いに吸収する**ラッパー（実テストがまだ無いフェーズ向け）。それ以外の非ゼロは伝播する。
+`task test` はワークスペース全体（`testpaths = ["packages", "apps"]`）を `uv run pytest` で一括収集・実行し、続けて infra の Vitest（スナップショット）を走らせる。
 
 ## アーキテクチャ
 
