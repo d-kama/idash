@@ -1,0 +1,49 @@
+# build context を batch（collect）関連に絞る。
+# 目的:
+#  - イメージ軽量化（不要ファイルを送らない）
+#  - DockerImageAsset の content ハッシュ揺れを「batch 関連ソース変更時のみ」に限定し、
+#    Vitest snapshot（image asset ハッシュ）の不要な差分を抑える。
+#
+# COPY 対象は pyproject.toml / uv.lock / packages/ / apps/batch/ のみ。
+# それ以外（TS / infra / frontend / docs / VCS / キャッシュ / ローカル venv 等）を除外する。
+
+# VCS
+.git
+.gitignore
+
+# TypeScript / pnpm ワークスペース（batch イメージに不要）
+node_modules
+infra
+apps/frontend
+apps/bff
+pnpm-lock.yaml
+pnpm-workspace.yaml
+package.json
+pnpm-workspace.yaml
+
+# Python キャッシュ / ローカル venv（イメージ内で uv sync し直す）
+.venv
+**/.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+**/.coverage
+htmlcov
+
+# ローカル検証ランナーの認証情報・成果物（万一にも混入させない）
+scripts
+*.local.json
+
+# ドキュメント / メタ
+docs
+*.md
+.github
+.vscode
+.idea
+
+# ツール設定（イメージビルドに不要）
+Taskfile.yml
+mise.toml
+biome.json
