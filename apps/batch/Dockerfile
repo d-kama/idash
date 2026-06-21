@@ -86,11 +86,18 @@ COPY --from=ghcr.io/astral-sh/uv:0.10.0 /uv /bin/uv
 # uv workspace を解決する。ルート pyproject.toml / uv.lock とワークスペースメンバー
 # （packages/* + apps/batch）を COPY し、batch のみ（--no-dev / --frozen）で同期する。
 # batch → infrastructure 依存で selenium / gspread / bs4 / lxml / boto3 が入る。
+#
+# --no-editable: workspace パッケージ（batch / domain / application …）を editable(.pth)
+# ではなく実体ファイルとして site-packages へ入れる。これがないと Lambda で
+# `No module named 'batch'` になる: 下の PYTHONPATH は site-packages を sys.path に
+# 足すだけで .pth を処理しない（.pth 処理は site ディレクトリ登録時のみ）ため、editable
+# 配置の workspace パッケージが import 不能になる。サードパーティ依存は実体 wheel
+# なので PYTHONPATH だけで読めるが、自前パッケージは実体配置が要る。
 WORKDIR /var/task
 COPY pyproject.toml uv.lock ./
 COPY packages/ packages/
 COPY apps/batch/ apps/batch/
-RUN uv sync --package idash-batch --no-dev --frozen
+RUN uv sync --package idash-batch --no-dev --frozen --no-editable
 
 # 同期した venv を Lambda ランタイムが import できるよう PATH / PYTHONPATH に通す。
 ENV PATH="/var/task/.venv/bin:${PATH}"
