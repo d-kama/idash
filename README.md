@@ -1,5 +1,16 @@
 # idash
 
+[![CI/CD](https://github.com/d-kama/idash/actions/workflows/cicd.yml/badge.svg)](https://github.com/d-kama/idash/actions/workflows/cicd.yml)
+[![last commit](https://img.shields.io/github/last-commit/d-kama/idash)](https://github.com/d-kama/idash/commits/main)
+
+[![Python](https://img.shields.io/badge/Python-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
+[![Biome](https://img.shields.io/badge/lint%2Fformat-Biome-60a5fa?logo=biome&logoColor=white)](https://biomejs.dev/)
+[![code size](https://img.shields.io/github/languages/code-size/d-kama/idash)](https://github.com/d-kama/idash)
+[![languages](https://img.shields.io/github/languages/count/d-kama/idash)](https://github.com/d-kama/idash)
+
 iDeCo（個人型確定拠出年金）の運用状況を把握・管理するためのアプリ。
 データを定期収集して蓄積し、Web 上で可視化＋サマリ通知する。個人利用・学習用。
 
