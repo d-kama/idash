@@ -56,8 +56,9 @@ export class IdashBatchStack extends Stack {
     });
 
     // CloudWatch Logs を明示作成（保持 7 日 + スタック削除時に破棄）。
+    // logGroupName は付けない（CDK 自動命名）。永続化が要るリソース（S3 等）以外は
+    // 自動命名に寄せる方針。Lambda へは logGroup 経由（LoggingConfig）で割り当てる。
     const collectLogGroup = new LogGroup(this, 'CollectFnLogGroup', {
-      logGroupName: `/aws/lambda/${id}-CollectFn`,
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
     });
