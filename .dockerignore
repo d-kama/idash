@@ -1,49 +1,36 @@
-# build context を batch（collect）関連に絞る。
-# 目的:
-#  - イメージ軽量化（不要ファイルを送らない）
-#  - DockerImageAsset の content ハッシュ揺れを「batch 関連ソース変更時のみ」に限定し、
-#    Vitest snapshot（image asset ハッシュ）の不要な差分を抑える。
+# Docker ビルドコンテキスト（= リポジトリルート）の除外定義。
 #
-# COPY 対象は pyproject.toml / uv.lock / packages/ / apps/batch/ のみ。
-# それ以外（TS / infra / frontend / docs / VCS / キャッシュ / ローカル venv 等）を除外する。
+# collect Lambda のコンテナイメージは build context = リポジトリルートでビルドする
+# （apps/batch/Dockerfile が COPY packages/ するため）。CDK の DockerImageCode は
+# IgnoreMode.DOCKER でこのファイルを読み、image asset のフィンガープリント計算にも
+# 同じ除外を適用する。コンテキストに環境依存ファイル（.git / node_modules / .venv /
+# cdk.out / __pycache__ / エディタやツールのローカル成果物）が混ざると、ローカルと
+# CI で image asset ハッシュがずれ、infra の CloudFormation snapshot テストが壊れる。
+#
+# 方式: まず全除外し、ビルドに必要なものだけ再許可する（許可リスト方式）。
+# コンテキストに入るのは Dockerfile が COPY する対象だけになるので、生成物や新しい
+# ツールのキャッシュが増えても除外漏れが起きず、ハッシュは構造的に揺れない。
 
-# VCS
-.git
-.gitignore
+# いったん全部除外する。
+*
 
-# TypeScript / pnpm ワークスペース（batch イメージに不要）
-node_modules
-infra
-apps/frontend
-apps/bff
-pnpm-lock.yaml
-pnpm-workspace.yaml
-package.json
-pnpm-workspace.yaml
+# Dockerfile が COPY する対象だけ再許可する。
+!pyproject.toml
+!uv.lock
+!packages
+!apps
 
-# Python キャッシュ / ローカル venv（イメージ内で uv sync し直す）
-.venv
-**/.venv
+# apps は batch だけビルドに要る（bff / frontend は collect イメージに不要）。
+apps/*
+!apps/batch
+
+# 再許可したツリーに紛れ込む生成物を最後に除外する（後勝ちで効く）。
 **/__pycache__
 **/*.pyc
-.pytest_cache
-.ruff_cache
-.mypy_cache
+**/*.pyo
+**/*.egg-info
+**/.venv
+**/.ruff_cache
+**/.pytest_cache
+**/.mypy_cache
 **/.coverage
-htmlcov
-
-# ローカル検証ランナーの認証情報・成果物（万一にも混入させない）
-scripts
-*.local.json
-
-# ドキュメント / メタ
-docs
-*.md
-.github
-.vscode
-.idea
-
-# ツール設定（イメージビルドに不要）
-Taskfile.yml
-mise.toml
-biome.json
