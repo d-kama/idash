@@ -105,11 +105,13 @@ def _default_chrome_factory(config: ScraperConfig) -> WebDriver:
     ):
         options.add_argument(argument)
     options.add_argument(f"--user-agent={config.user_agent}")
-    # TODO(フェーズ4.1): この一時ディレクトリは driver 終了時に解放していない。
-    # Lambda ウォーム実行で /tmp を圧迫するため、コンテナ化・実起動の検証と併せて
-    # driver.quit() 時の cleanup を実装する（live 専用・現状未テストのため先送り）。
-    tmp_dir = tempfile.mkdtemp()
-    options.add_argument(f"--user-data-dir={tmp_dir}")
+    # MEMO: Chrome の user-data-dir 用に毎回 /tmp へ新規ディレクトリを作る（固定パスだと Lambda
+    # ウォーム再利用時に "user data directory is already in use" になり得るため fresh path に
+    # する）。終了後に削除はしない＝あえてのリーク。収集は日次1回・毎回コールドスタートで、
+    # reservedConcurrentExecutions=1 によりウォーム環境は最大1個、プロファイル数十MB に対し
+    # /tmp は既定 512MB あり、アイドルの実行環境は破棄されるため /tmp に蓄積しない。
+    # 必要になったら quit 後に shutil.rmtree() することを検討。
+    options.add_argument(f"--user-data-dir={tempfile.mkdtemp()}")
     options.binary_location = config.chrome_binary_location
 
     driver = webdriver.Chrome(service=Service(config.chrome_driver_path), options=options)
@@ -118,7 +120,6 @@ def _default_chrome_factory(config: ScraperConfig) -> WebDriver:
 
 
 def _format_birthdate(birthdate: date) -> str:
-    # TODO(フェーズ4.3): 実サイトのフォーム入力フォーマットを確定する（暫定 %Y%m%d）。
     return birthdate.strftime("%Y%m%d")
 
 
@@ -201,8 +202,15 @@ class SeleniumScraper:
         driver.find_element(By.ID, "btnLogin").click()
         if not self._is_logged_in(driver):
             raise ScraperError("ログインに失敗しました（ログアウトリンクが見つかりません）")
-        if self._config.select_transferring_plan:
-            self._select_transferring_out_plan(driver)
+        # ここでサーバ側セッション確立済み。以降の過渡ステップが失敗してもセッションを
+        # 残さないよう logout を試みてから送出する（残存セッションでの再ログイン不能を防ぐ）。
+        # 確立前の失敗はセッションが無いので logout 不要（session() 側で close のみ）。
+        try:
+            if self._config.select_transferring_plan:
+                self._select_transferring_out_plan(driver)
+        except BaseException:
+            self._logout_quietly(driver)
+            raise
 
     @staticmethod
     def _is_logged_in(driver: WebDriver) -> bool:
@@ -215,10 +223,22 @@ class SeleniumScraper:
     @staticmethod
     def _select_transferring_out_plan(driver: WebDriver) -> None:
         # TODO(フェーズ4.3): プラン移行完了後に削除する過渡ステップ。
-        rows = driver.find_elements(By.CSS_SELECTOR, "table.inputTable tbody tr")
-        for row in rows:
-            cell = row.find_element(By.CSS_SELECTOR, "td[data-lang='jp']")
+        # プラン選択テーブルの「異動状況」セル（td[data-lang='jp']）が「転出処理中」の
+        # 行を選び「決定」する。
+        #
+        # 行（tr）を総なめして行内 find_element(td) を呼ぶと、見出し行（th のみで td を
+        # 持たない）で NoSuchElementException になる。そこで行ではなくデータセルを直接
+        # 走査し、該当セルから祖先 tr を辿って同じ行のラジオを押す（見出し行は td を持た
+        # ないため走査対象に現れない）。
+        #
+        # ログイン直後はテーブルが描画途中のことがあるため、セルが1つでも描画済みになる
+        # のを marker として待ってから走査する（_SeleniumScraperSession.scrape() の「読み
+        # 込み完了の確認」と同じ implicit_wait ベースのイディオム）。
+        cell_selector = "table.inputTable tbody td[data-lang='jp']"
+        driver.find_element(By.CSS_SELECTOR, cell_selector)  # 描画完了の marker 待ち
+        for cell in driver.find_elements(By.CSS_SELECTOR, cell_selector):
             if "転出処理中" in cell.text:
+                row = cell.find_element(By.XPATH, "./ancestor::tr[1]")
                 row.find_element(By.CSS_SELECTOR, "input[type='radio']").click()
                 driver.find_element(By.ID, "btnSubmit").click()
                 return
