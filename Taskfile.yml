@@ -1,7 +1,7 @@
 version: '3'
 
 # Phase 0 では「いま動くタスク」のみ実装する。
-# 将来タスク（gen-types / build-front / deploy / batch / bff / front）は
+# 将来タスク（gen-types / build-front / batch / bff / front）は
 # 該当アプリの実装が入る後続フェーズで有効化する（下部にコメントで雛形を残置）。
 
 tasks:
@@ -46,6 +46,11 @@ tasks:
     cmds:
       - pnpm --filter @idash/infra exec cdk synth
 
+  deploy:
+    desc: "CDK デプロイ（要 AWS 認証。対象は現状 IdashBatchStack のみ）"
+    cmds:
+      - pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
+
   check:
     desc: lint + typecheck + test を一括実行
     cmds:
@@ -62,11 +67,6 @@ tasks:
   # build-front:      # フロントビルド（Phase 4）
   #   deps: [gen-types]
   #   cmds: [pnpm --filter @idash/frontend build]
-  #
-  # deploy:           # CDK デプロイ（Phase 5）
-  #   deps: [build-front]
-  #   cmds:
-  #     - pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
   #
   # batch:            # ローカル実行（Phase 2）
   #   cmds: [uv run python -m batch.main]
