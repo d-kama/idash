@@ -68,8 +68,10 @@ export class IdashBatchStack extends Stack {
 
     // データ収集 Lambda（版ピン chrome 同梱のコンテナイメージ）。
     // runtime / handler はイメージの CMD が決めるため指定しない。
+    // functionName は付けない（CDK 自動命名）。固定名にすると PackageType 変更
+    // （Zip⇄Image）等の置換時に新旧で名前衝突し deploy が詰まるため。参照は ARN /
+    // オブジェクト経由なので物理名は不要。
     const collectFn = new DockerImageFunction(this, 'CollectFn', {
-      functionName: `${id}-CollectFn`,
       code: DockerImageCode.fromImageAsset(repoRoot, {
         file: 'apps/batch/Dockerfile',
         // `.dockerignore` を asset フィンガープリントにも効かせる。これがないと

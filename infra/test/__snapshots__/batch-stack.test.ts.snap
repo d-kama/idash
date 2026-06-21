@@ -61,7 +61,6 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
             },
           },
         },
-        "FunctionName": "Idash-dev-Batch-CollectFn",
         "LoggingConfig": {
           "LogGroup": {
             "Ref": "CollectFnLogGroup13AF6A1B",
