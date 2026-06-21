@@ -1,6 +1,8 @@
-import { Duration, RemovalPolicy, Stack, type StackProps, TimeZone } from 'aws-cdk-lib';
-import { Code, Function as LambdaFunction, Runtime } from 'aws-cdk-lib/aws-lambda';
+import * as path from 'node:path';
+import { Duration, IgnoreMode, RemovalPolicy, Stack, type StackProps, TimeZone } from 'aws-cdk-lib';
+import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
+import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 import { Schedule, ScheduleExpression } from 'aws-cdk-lib/aws-scheduler';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-scheduler-targets';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
@@ -14,10 +16,12 @@ export interface IdashBatchStackProps extends StackProps {
 /**
  * データ収集バッチの infra。
  *
- * Phase 1（issue-2）の最小実装: collect（データ収集）Lambda のみ。
- * - Lambda はプレースホルダ zip（`Code.fromInline` / `Runtime.PYTHON_3_13`）。
- *   コンテナ化（`DockerImageFunction`）は Phase 3 で差替。
- * - notify（サマリ通知）Lambda は Phase 4（TODO）。
+ * collect（データ収集）Lambda のみ（notify は Phase 4 = 別タスク）。
+ * - Lambda はコンテナイメージ（`DockerImageFunction.fromImageAsset`）。版ピン chrome を
+ *   同梱した `apps/batch/Dockerfile` を build context = リポジトリルートでビルドする
+ *   （Docker ビルドは synth ではなく deploy 時に走る）。
+ * - スクレイピング失敗時のエラーページ証跡を保存する S3 バケットを併設する
+ *   （`S3ErrorPageStore` の書き込み先 = env `ERROR_PAGE_BUCKET`）。
  */
 export class IdashBatchStack extends Stack {
   constructor(scope: Construct, id: string, props: IdashBatchStackProps) {
@@ -40,6 +44,16 @@ export class IdashBatchStack extends Stack {
       { parameterName: sourceLoginParamName },
     );
 
+    // スクレイピング失敗時のエラーページ証跡（HTML）を保存する S3 バケット。
+    // - 公開全面ブロック / 30 日でライフサイクル失効（証跡は短期保持で十分）。
+    // - スタック削除時に破棄（DESTROY）。**autoDeleteObjects は付けない**（snapshot を
+    //   綺麗に保つ。destroy 前にオブジェクトが残る場合は手動でバケットを空にする運用）。
+    const errorPageBucket = new Bucket(this, 'ErrorPageBucket', {
+      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      lifecycleRules: [{ expiration: Duration.days(30) }],
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
     // CloudWatch Logs を明示作成（保持 7 日 + スタック削除時に破棄）。
     const collectLogGroup = new LogGroup(this, 'CollectFnLogGroup', {
       logGroupName: `/aws/lambda/${id}-CollectFn`,
@@ -47,28 +61,40 @@ export class IdashBatchStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
-    // データ収集 Lambda（Phase 1 はプレースホルダ）。
-    const collectFn = new LambdaFunction(this, 'CollectFn', {
+    // build context = リポジトリルート（COPY packages/ + apps/batch/ のため）。
+    // infra/lib から 2 つ上がリポジトリルート。
+    const repoRoot = path.join(__dirname, '../..');
+
+    // データ収集 Lambda（版ピン chrome 同梱のコンテナイメージ）。
+    // runtime / handler はイメージ（CMD）が決めるため指定しない。
+    const collectFn = new DockerImageFunction(this, 'CollectFn', {
       functionName: `${id}-CollectFn`,
-      runtime: Runtime.PYTHON_3_13,
-      handler: 'index.handler',
-      code: Code.fromInline(
-        'def handler(event, context):\n    return {"status": "placeholder"}\n',
-      ),
-      memorySize: 1024,
-      timeout: Duration.minutes(5),
+      code: DockerImageCode.fromImageAsset(repoRoot, {
+        file: 'apps/batch/Dockerfile',
+        cmd: ['batch.handler_collect.handler'],
+        // `.dockerignore` を asset フィンガープリントにも効かせる。これがないと
+        // build context 外の dev ファイル（scripts/ や *.local.json 等）の変更でも
+        // image asset ハッシュが揺れ、Vitest snapshot が不要に壊れる。
+        ignoreMode: IgnoreMode.DOCKER,
+      }),
+      memorySize: 2048,
+      timeout: Duration.minutes(10),
       reservedConcurrentExecutions: 1, // 同時実行ハードキャップ（コスト暴発対策）
       logGroup: collectLogGroup,
       environment: {
         ENV_NAME: envName,
         SHEETS_SA_PARAM_ARN: sheetsSaParam.parameterArn,
         SOURCE_LOGIN_PARAM_ARN: sourceLoginParam.parameterArn,
+        ERROR_PAGE_BUCKET: errorPageBucket.bucketName,
       },
     });
 
     // SSM 読取権限（aws/ssm マネージドキーのため kms:Decrypt の明示付与は不要）。
     sheetsSaParam.grantRead(collectFn);
     sourceLoginParam.grantRead(collectFn);
+
+    // エラーページ保存は PutObject のみ（S3ErrorPageStore.save）→ grantWrite で十分。
+    errorPageBucket.grantWrite(collectFn);
 
     // 収集スケジュール: 日次 JST 09:00（Asia/Tokyo）。
     new Schedule(this, 'DailyCollect', {
