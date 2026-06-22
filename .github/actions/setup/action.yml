@@ -7,7 +7,7 @@ runs:
   using: composite
   steps:
     # mise.toml を単一ソースに python/node/uv/pnpm/task を導入（ローカルと同一手順）
-    - uses: jdx/mise-action@dba19683ed58901619b14f395a24841710cb4925 # v4.1.0
+    - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
 
     # uv のダウンロードキャッシュ（uv.lock 変化で更新）
     - name: Cache uv
