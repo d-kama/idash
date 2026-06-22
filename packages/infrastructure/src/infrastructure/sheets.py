@@ -66,8 +66,6 @@ class SheetsAssetRepository:
         ]
         self._worksheet_handle().append_rows(rows, value_input_option=ValueInputOption.raw)
 
-    def find_by_date_range(
-        self, from_date: date, to_date: date
-    ) -> Sequence[PortfolioAsset]:
+    def find_by_date_range(self, from_date: date, to_date: date) -> Sequence[PortfolioAsset]:
         # read 系（行→基準日グループ化で PortfolioAsset 再構成）は後続タスクで実装する。
         raise NotImplementedError

@@ -115,9 +115,7 @@ class AssetRepository(Protocol):
 
     def save(self, asset: PortfolioAsset) -> None: ...
 
-    def find_by_date_range(
-        self, from_date: date, to_date: date
-    ) -> Sequence[PortfolioAsset]:
+    def find_by_date_range(self, from_date: date, to_date: date) -> Sequence[PortfolioAsset]:
         """基準日が閉区間 [from_date, to_date] に含まれる PortfolioAsset を基準日昇順で返す。
 
         区間内に実在する基準日だけを返す（歯抜け許容、件数 0 もあり得る）。

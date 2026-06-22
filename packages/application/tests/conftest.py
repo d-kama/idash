@@ -85,9 +85,7 @@ class InMemoryAssetRepository:
     def save(self, asset: PortfolioAsset) -> None:
         self.saved.append(asset)
 
-    def find_by_date_range(
-        self, from_date: date, to_date: date
-    ) -> list[PortfolioAsset]:
+    def find_by_date_range(self, from_date: date, to_date: date) -> list[PortfolioAsset]:
         in_range = [a for a in self.saved if from_date <= a.base_date <= to_date]
         return sorted(in_range, key=lambda a: a.base_date)
 

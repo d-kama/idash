@@ -92,9 +92,7 @@ class _PrintAssetRepository:
                 f"profit_loss={product.profit_loss.yen}"
             )
 
-    def find_by_date_range(
-        self, from_date: date, to_date: date
-    ) -> Sequence[PortfolioAsset]:
+    def find_by_date_range(self, from_date: date, to_date: date) -> Sequence[PortfolioAsset]:
         # 収集（dry-run）専用。read 系は使わない。
         raise NotImplementedError
 

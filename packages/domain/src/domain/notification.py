@@ -40,9 +40,7 @@ def summarize(assets: Sequence[PortfolioAsset]) -> Summary:
     latest_total = newest.total()
 
     contribution_yen = latest_total.contribution.yen
-    profit_rate = (
-        latest_total.profit_loss.yen / contribution_yen if contribution_yen != 0 else 0.0
-    )
+    profit_rate = latest_total.profit_loss.yen / contribution_yen if contribution_yen != 0 else 0.0
 
     return Summary(
         period_from=oldest.base_date,
@@ -66,8 +64,7 @@ def render_summary(summary: Summary) -> Notification:
     """Summary を人が読むテキストへ整形する純粋関数。"""
     latest_total = summary.latest_total
     subject = (
-        f"iDeCo 運用サマリ（{summary.period_from.isoformat()}〜"
-        f"{summary.latest_date.isoformat()}）"
+        f"iDeCo 運用サマリ（{summary.period_from.isoformat()}〜{summary.latest_date.isoformat()}）"
     )
     body = (
         f"■ 最新（{summary.latest_date.isoformat()} 時点）\n"
