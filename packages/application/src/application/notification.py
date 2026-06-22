@@ -18,7 +18,9 @@ from domain.notification import Notification, Notifier, render_summary, summariz
 class NotifySummaryInputBoundary(Protocol):
     """サマリ通知ユースケースの入力境界。"""
 
-    def execute(self, days: int) -> Notification | None: ...
+    def execute(self, days: int) -> Notification | None:
+        """直近 days 日のサマリを通知する（days は 1 以上）。"""
+        ...
 
 
 class NotifySummaryUseCase(NotifySummaryInputBoundary):
@@ -33,6 +35,10 @@ class NotifySummaryUseCase(NotifySummaryInputBoundary):
         self._clock = clock
 
     def execute(self, days: int) -> Notification | None:
+        if days < 1:
+            # days<1 だと from_date が未来になり窓が空集合化 → 0件 skip と区別できず
+            # 設定不備（env/event の不正値）をサイレントに握り潰すため早期に弾く。
+            raise ValueError(f"days must be >= 1, got {days}")
         today = self._clock.now().date()
         from_date = today - timedelta(days=days - 1)  # 直近 N 日 = today を含む閉区間
         assets = self._repository.find_by_date_range(from_date, today)
