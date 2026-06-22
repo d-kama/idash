@@ -312,7 +312,7 @@ class NotifySummaryUseCase(NotifySummaryInputBoundary):
 | 2026-06-21 | メッセージ整形は domain の純粋関数 `render_summary(summary) -> Notification{subject,body}`（チャネル非依存プレーンテキスト）に置く。`NotifierPort.send(Notification)` は整形済みを送るだけ。チャネル別整形（代替案）は重複・テスト性低下のため不採用 | ユーザー |
 | 2026-06-21 | 集計（計算）は domain の `summarize` に置き、ユースケースは持たない。理由: 将来 BFF が同じ集計を使うときにユースケース間で計算が重複しないようにするため（apps/usecase は相互依存させない方針とも整合） | ユーザー |
 | 2026-06-21 | 窓内0件＝通知を送らず skip（戻り値 `None`）。収集継続失敗の検知は収集 Lambda 失敗（将来の監視）の領域で、通知バッチに代替検知の責務は持たせない。窓内1件＝差分 `Money(0)` で正常送信 | ユーザー |
-| 2026-06-21 | ユースケースの戻り値は domain 型（`Notification | None`）。Lambda レスポンス整形は後続の `handler_notify` の責務 | ユーザー |
+| 2026-06-21 | ユースケースの戻り値は domain 型（`Notification \| None`）。Lambda レスポンス整形は後続の `handler_notify` の責務 | ユーザー |
 | 2026-06-21 | `Clock` を共有ポート `domain/clock.py` へ昇格（収集サブドメインからの位置づけを解消し、通知・将来 BFF と共有）。import 3箇所を機械的に付替。`SystemClock` は構造的実装のため無変更 | ユーザー |
 | 2026-06-21 | ADR は作成しない（整形を domain に置く件は覆すコスト小・`CONTEXT.md` の `Notification` 定義で意図が伝わる＝シンプル優先） | ユーザー |
 | 2026-06-21 | `Summary.profit_rate` は生比率（float）を保持。表示時の `*100`/桁整形は `render_summary` 側。拠出累計0のときは `profit_rate = 0.0` にガード | 実装者 |
