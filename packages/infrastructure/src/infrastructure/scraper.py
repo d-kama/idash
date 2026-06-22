@@ -27,7 +27,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
 from domain.asset import Money, PortfolioAsset, ProductAsset
-from domain.collection import Clock, Credentials, ScraperError, ScraperSession
+from domain.clock import Clock
+from domain.collection import Credentials, ScraperError, ScraperSession
 from infrastructure.clock import SystemClock
 
 

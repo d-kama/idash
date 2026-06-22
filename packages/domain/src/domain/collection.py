@@ -78,9 +78,3 @@ class ErrorPageStore(Protocol):
     """ErrorPage を保存するポート。"""
 
     def save(self, page: ErrorPage) -> None: ...
-
-
-class Clock(Protocol):
-    """ErrorPage の捕捉時刻を供給する時計。"""
-
-    def now(self) -> datetime: ...

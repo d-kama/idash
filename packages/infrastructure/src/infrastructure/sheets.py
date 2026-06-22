@@ -7,8 +7,9 @@ PortfolioAsset を商品ごと1行に展開して worksheet へ append する。
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 import gspread
@@ -64,3 +65,9 @@ class SheetsAssetRepository:
             for product in asset.products
         ]
         self._worksheet_handle().append_rows(rows, value_input_option=ValueInputOption.raw)
+
+    def find_by_date_range(
+        self, from_date: date, to_date: date
+    ) -> Sequence[PortfolioAsset]:
+        # read 系（行→基準日グループ化で PortfolioAsset 再構成）は後続タスクで実装する。
+        raise NotImplementedError
