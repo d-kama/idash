@@ -37,3 +37,17 @@ _Avoid_: PensionRepository
 
 **ErrorPage** / **ErrorPageStore**:
 スクレイピング失敗時点で捕捉したエラーページ（HTML 等の証跡）と、その保存先ポート。
+
+### 通知（Notification）
+
+**Summary**:
+直近の対象期間について集計した運用状況の結果を表す値オブジェクト。最新基準日時点のスナップショット（AssetTotal と損益率＝評価損益 ÷ 拠出金額累計）と、期間変化（期間内に実在する最古→最新基準日での資産評価額・評価損益の増減）を持つ。集計（純粋な業務計算）はドメインサービス `summarize` が担う。
+_Avoid_: Report, Digest
+
+**Notification**:
+通知チャネルに依存しない通知メッセージ（subject と body のプレーンテキスト）を表す値オブジェクト。Summary をドメインの純粋関数で整形して生成する。
+_Avoid_: Message, Alert
+
+**Notifier**:
+Notification を通知チャネルへ送るポート。整形済みのメッセージを送信するだけで、集計・整形のロジックは持たない。具象チャネル（メール / Slack / LINE 等）は後続フェーズで決定。
+_Avoid_: Sender, Publisher

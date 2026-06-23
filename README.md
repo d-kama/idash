@@ -59,12 +59,12 @@ task setup     # 依存解決（uv sync && pnpm install）
 | タスク | 内容 |
 |--------|------|
 | `task setup` | 依存解決（`uv sync` + `pnpm install`） |
-| `task lint` | Lint（Python: ruff / TS: Biome） |
-| `task format` | フォーマット（Python: ruff format / TS: Biome） |
+| `task lint` | Lint（静的解析のみ・書き換えなし。Python: ruff / TS: Biome） |
+| `task format` | フォーマット自動修正（書き込み・ローカル整形。Python: ruff format / TS: Biome） |
 | `task typecheck` | 型チェック（Python: ty / TS: tsc） |
 | `task test` | テスト（pytest + infra Vitest スナップショット） |
 | `task synth` | CDK synth（CloudFormation テンプレート生成。AWS 認証不要） |
-| `task check` | lint + typecheck + test を一括実行 |
+| `task check` | lint + フォーマット検証 + typecheck + test を一括実行（CI と同じ検証） |
 
 > gen-types / build-front / deploy などの将来タスクは後続フェーズで有効化する
 > （`Taskfile.yml` にコメントで雛形を残置）。

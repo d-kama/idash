@@ -62,6 +62,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections.abc import Sequence
 from datetime import date
 from pathlib import Path
 from typing import Any
@@ -90,6 +91,10 @@ class _PrintAssetRepository:
                 f"valuation={product.valuation.yen} "
                 f"profit_loss={product.profit_loss.yen}"
             )
+
+    def find_by_date_range(self, from_date: date, to_date: date) -> Sequence[PortfolioAsset]:
+        # 収集（dry-run）専用。read 系は使わない。
+        raise NotImplementedError
 
 
 class _LocalFileErrorPageStore:

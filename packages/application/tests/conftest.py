@@ -17,6 +17,7 @@ import pytest
 
 from domain.asset import Money, PortfolioAsset, ProductAsset
 from domain.collection import Credentials, ErrorPage, ScraperError
+from domain.notification import Notification
 
 FIXED_NOW = datetime(2026, 6, 18, 9, 0, 0)
 
@@ -84,6 +85,20 @@ class InMemoryAssetRepository:
     def save(self, asset: PortfolioAsset) -> None:
         self.saved.append(asset)
 
+    def find_by_date_range(self, from_date: date, to_date: date) -> list[PortfolioAsset]:
+        in_range = [a for a in self.saved if from_date <= a.base_date <= to_date]
+        return sorted(in_range, key=lambda a: a.base_date)
+
+
+class RecordingNotifier:
+    """受領した Notification を記録するインメモリ Notifier。"""
+
+    def __init__(self) -> None:
+        self.sent: list[Notification] = []
+
+    def send(self, notification: Notification) -> None:
+        self.sent.append(notification)
+
 
 class InMemoryErrorPageStore:
     """保存された ErrorPage を記録するインメモリ ErrorPageStore。"""
@@ -113,6 +128,11 @@ def repository() -> InMemoryAssetRepository:
 @pytest.fixture
 def error_store() -> InMemoryErrorPageStore:
     return InMemoryErrorPageStore()
+
+
+@pytest.fixture
+def notifier() -> RecordingNotifier:
+    return RecordingNotifier()
 
 
 @pytest.fixture

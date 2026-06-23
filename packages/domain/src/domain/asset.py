@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Protocol
@@ -110,10 +111,13 @@ class PortfolioAsset:
 
 
 class AssetRepository(Protocol):
-    """PortfolioAsset を永続化するポート。
-
-    本フェーズでは保存（save）のみを定義する。日付/期間での取得（read 系）は
-    後続フェーズで後方互換に追加する。
-    """
+    """PortfolioAsset を永続化・取得するポート。"""
 
     def save(self, asset: PortfolioAsset) -> None: ...
+
+    def find_by_date_range(self, from_date: date, to_date: date) -> Sequence[PortfolioAsset]:
+        """基準日が閉区間 [from_date, to_date] に含まれる PortfolioAsset を基準日昇順で返す。
+
+        区間内に実在する基準日だけを返す（歯抜け許容、件数 0 もあり得る）。
+        """
+        ...

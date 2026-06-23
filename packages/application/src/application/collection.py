@@ -9,8 +9,8 @@ from __future__ import annotations
 from typing import Protocol
 
 from domain.asset import AssetRepository, PortfolioAsset
+from domain.clock import Clock
 from domain.collection import (
-    Clock,
     Credentials,
     ErrorPage,
     ErrorPageStore,

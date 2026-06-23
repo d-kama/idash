@@ -22,9 +22,9 @@ task setup     # 依存解決（uv sync && pnpm install）
 横断タスクは **go-task**（`Taskfile.yml`）に集約。個別言語ツールを直接叩く必要は基本ない。
 
 ```bash
-task check       # lint + typecheck + test を一括（CI と同じ検証）
-task lint        # ruff check + biome lint
-task format      # ruff format + biome format --write
+task check       # lint + フォーマット検証 + typecheck + test を一括（CI と同じ検証）
+task lint        # ruff check + biome lint（静的解析のみ・書き換えなし）
+task format      # ruff format + biome format --write（ローカル整形・書き込み）
 task typecheck   # ty check（Python）+ tsc（TS, pnpm -r run typecheck）
 task test        # pytest + infra Vitest
 task synth       # CDK synth（CloudFormation 生成、AWS 認証不要）

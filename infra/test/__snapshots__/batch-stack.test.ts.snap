@@ -18,7 +18,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:59f9a82933f174fd5fe01fd5c7650f04c812f7eaa72273a0ab2cbbf411e2407e",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:8c39edcc631d37cf341cd5b11a85eb7f2d88db64be26ad546f13ad49c50c07e4",
           },
         },
         "Environment": {

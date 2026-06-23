@@ -80,8 +80,12 @@ def test_handler_reads_config_and_runs_use_case(monkeypatch) -> None:
     def factory(settings, source, sheets_cfg):
         captured["source"] = source
         captured["sheets_cfg"] = sheets_cfg
-        return fake, source["start_url"], Credentials(
-            user_id=source["user_id"], password=source["password"], birthdate=date(1990, 1, 1)
+        return (
+            fake,
+            source["start_url"],
+            Credentials(
+                user_id=source["user_id"], password=source["password"], birthdate=date(1990, 1, 1)
+            ),
         )
 
     result = handler_collect.handler({}, None, use_case_factory=factory)
