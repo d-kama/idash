@@ -24,16 +24,10 @@ tasks:
       - pnpm exec biome lint .
 
   format:
-    desc: "フォーマット（Python: ruff format / TS: Biome）"
+    desc: "フォーマット自動修正（書き込み・ローカル整形。Python: ruff format / TS: Biome）"
     cmds:
       - uv run ruff format .
       - pnpm exec biome format --write .
-
-  format:check:
-    desc: "フォーマット検証（書き換えず、差分があれば失敗させる。CI 用）"
-    cmds:
-      - uv run ruff format --check .
-      - pnpm exec biome format .
 
   typecheck:
     desc: "型チェック（Python: ty / TS: tsc）"
@@ -58,10 +52,11 @@ tasks:
       - pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
 
   check:
-    desc: lint + format + typecheck + test を一括実行
+    desc: "CI と同じ検証（書き換えなし）: lint + フォーマット検証 + typecheck + test"
     cmds:
-      - task: lint
-      - task: format:check
+      - uv run ruff check .            # Python: Lint
+      - uv run ruff format --check .   # Python: フォーマット検証
+      - pnpm exec biome ci .           # TS: Lint + フォーマット + import 整列 を一括検証（CI 専用コマンド）
       - task: typecheck
       - task: test
 
