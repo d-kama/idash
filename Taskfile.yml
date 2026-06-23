@@ -29,6 +29,12 @@ tasks:
       - uv run ruff format .
       - pnpm exec biome format --write .
 
+  format:check:
+    desc: "フォーマット検証（書き換えず、差分があれば失敗させる。CI 用）"
+    cmds:
+      - uv run ruff format --check .
+      - pnpm exec biome format .
+
   typecheck:
     desc: "型チェック（Python: ty / TS: tsc）"
     cmds:
@@ -52,9 +58,10 @@ tasks:
       - pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
 
   check:
-    desc: lint + typecheck + test を一括実行
+    desc: lint + format + typecheck + test を一括実行
     cmds:
       - task: lint
+      - task: format:check
       - task: typecheck
       - task: test
 
