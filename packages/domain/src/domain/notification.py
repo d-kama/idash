@@ -72,6 +72,7 @@ def render_summary(summary: Summary) -> Notification:
         f"  評価損益: {latest_total.profit_loss.signed()}"
         f"（{summary.profit_rate * 100:+.2f}%）\n"
         f"  拠出累計: {latest_total.contribution.format()}\n"
+        f"\n"
         f"■ この期間の変化（{summary.period_from.isoformat()} → "
         f"{summary.latest_date.isoformat()}）\n"
         f"  評価額: {summary.valuation_change.signed()}\n"
