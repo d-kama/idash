@@ -70,6 +70,14 @@ def _print_transport(url: str, body: bytes, headers: Mapping[str, str]) -> None:
     print(text)
 
 
+def _positive_int(value: str) -> int:
+    """argparse 用バリデータ。集計対象日数として 1 以上の整数のみ許可する。"""
+    parsed = int(value)
+    if parsed < 1:
+        raise argparse.ArgumentTypeError("--days must be >= 1")
+    return parsed
+
+
 def _load_config(path: Path) -> dict[str, Any]:
     if not path.exists():
         sys.exit(
@@ -129,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--days",
-        type=int,
+        type=_positive_int,
         default=_DEFAULT_DAYS,
         help=f"集計対象日数（既定 {_DEFAULT_DAYS}）",
     )

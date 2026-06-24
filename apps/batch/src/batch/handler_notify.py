@@ -66,8 +66,10 @@ def handler(
     sheets_cfg = ssm.get_secure_json(settings.sheets_sa_param)
     line_cfg = ssm.get_secure_json(settings.notify_line_param)
 
-    # 集計対象日数は event 優先・既定は env（NOTIFY_DAYS / 既定7）。
-    days = (event or {}).get("days") or settings.notify_days
+    # 集計対象日数は event 優先・既定は env（NOTIFY_DAYS / 既定7）。`or` ではなく None 判定で、
+    # 明示された days=0 / 負値を既定値へ握り潰さず use case の検証（days>=1）へ素通しする。
+    raw_days = (event or {}).get("days")
+    days = settings.notify_days if raw_days is None else raw_days
 
     use_case = use_case_factory(settings, sheets_cfg, line_cfg)
     notification = use_case.execute(days)

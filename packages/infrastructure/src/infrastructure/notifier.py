@@ -23,11 +23,16 @@ from domain.notification import Notification
 # 記録用 fake を注入する。
 Transport = Callable[[str, bytes, Mapping[str, str]], None]
 
+# 外部 API（LINE）無応答時に Lambda 実行時間を張り付かせないための明示タイムアウト（秒）。
+_HTTP_TIMEOUT_SECONDS = 10
+
 
 def _default_transport(url: str, body: bytes, headers: Mapping[str, str]) -> None:
     request = urllib.request.Request(url, data=body, headers=dict(headers), method="POST")
     # 非2xx は urlopen が HTTPError を送出 → 呼び出し元へ伝播させる（捕捉しない）。
-    with urllib.request.urlopen(request):  # noqa: S310  url は固定の LINE API エンドポイント
+    with urllib.request.urlopen(  # noqa: S310  url は固定の LINE API エンドポイント
+        request, timeout=_HTTP_TIMEOUT_SECONDS
+    ):
         pass
 
 

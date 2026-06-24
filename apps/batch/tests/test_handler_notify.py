@@ -93,6 +93,21 @@ def test_handler_prefers_event_days(monkeypatch) -> None:
 
 
 @mock_aws
+def test_handler_passes_explicit_zero_days_through(monkeypatch) -> None:
+    # event の days=0 は falsy だが既定値へ握り潰さず、そのまま use case へ渡す
+    # （不正値の検証は use case の責務 days>=1 に委ねる）。
+    _put_params()
+    for key, value in ENV.items():
+        monkeypatch.setenv(key, value)
+
+    fake = _FakeUseCase(NOTIFICATION)
+
+    handler_notify.handler({"days": 0}, None, use_case_factory=lambda *_: fake)
+
+    assert fake.calls == [0]  # 既定7に化けていない。
+
+
+@mock_aws
 def test_handler_returns_skipped_when_no_assets(monkeypatch) -> None:
     _put_params()
     for key, value in ENV.items():
