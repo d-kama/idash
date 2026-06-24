@@ -42,3 +42,30 @@ class CollectSettings:
             source_login_param=_require(env, "SOURCE_LOGIN_PARAM_ARN"),
             error_page_bucket=_require(env, "ERROR_PAGE_BUCKET"),
         )
+
+
+@dataclass(frozen=True)
+class NotifySettings:
+    """サマリ通知バッチの実行に必要な環境変数。
+
+    Sheets read（`sheets-sa` を再利用）と LINE 通知（`notify-line`）のみを要し、
+    収集固有の `source-login` / `error_page_bucket` は持たない。`notify_days` は
+    集計対象の日数で、env 欠落時は 7 を既定とする（event の `days` で上書き可）。
+    """
+
+    env_name: str
+    sheets_sa_param: str
+    notify_line_param: str
+    notify_days: int
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str] | None = None) -> NotifySettings:
+        """環境変数（既定で `os.environ`）から NotifySettings を構築する。"""
+        env = os.environ if env is None else env
+        notify_days = env.get("NOTIFY_DAYS")
+        return cls(
+            env_name=_require(env, "ENV_NAME"),
+            sheets_sa_param=_require(env, "SHEETS_SA_PARAM_ARN"),
+            notify_line_param=_require(env, "NOTIFY_LINE_PARAM_ARN"),
+            notify_days=int(notify_days) if notify_days is not None else 7,
+        )

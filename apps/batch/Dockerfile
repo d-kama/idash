@@ -1,4 +1,9 @@
-# データ収集バッチ（collect）の Lambda コンテナイメージ。
+# batch アプリ共有イメージ（collect + notify）の Lambda コンテナイメージ。
+#
+# 1アプリ=1イメージ（PROJECT_PLAN §2.3.1）。collect / notify は同一イメージを共有し、
+# CDK が関数ごとに cmd を上書きする（collect=batch.handler_collect.handler /
+# notify=batch.handler_notify.handler）。既定 CMD は collect。notify は重依存
+# （selenium/chrome）を起動経路で import しないが、同梱コストは週次バッチのため実害なし。
 #
 # ADR-0003: Selenium + 版ピン chromium/chromedriver を同梱する。版不整合起因の
 # InvalidSessionId / NoSuchElement を構造的に避けるため、Chrome for Testing(CfT)
