@@ -353,15 +353,15 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [ ] **TODO: 対象サイト・収集項目・収集ロジック / 認証情報・多要素認証の有無 / 利用規約・自動アクセス可否**
 
 ### Phase 4: サマリ通知バッチ 実装〜デプロイ
-> Sheets を介してのみ collect と連携（疎結合）。
-- [ ] `domain`: 集計ドメインサービス（I/O 無しでテスト可能）… **TODO: 集計ルール**
-- [ ] `domain`/`schemas`: 通知ポート・サマリ DTO
-- [ ] `infrastructure`: 通知クライアント具象（チャネル確定後）… **TODO: メール/Slack/LINE 等**
-- [ ] `application`: `NotifySummary` ユースケース（直近 N 日 read → 集計 → 通知 send）
-- [ ] `apps/batch/handler_notify.py`（薄いアダプタ）。同一イメージから2 Lambda 関数（cmd 違い）を CDK で生成
-- [ ] `IdashBatchStack` に notify Lambda ＋ 通知スケジュール（JST）＋ 通知認証情報の `grantRead`
-- [ ] 実デプロイ＆動作確認
-- [ ] **TODO: 通知チャネルと認証情報管理 / 集計内容・サマリ項目 / N の既定値・指定方法 / 通知頻度・時刻**
+> Sheets を介してのみ collect と連携（疎結合）。抽象層は issue-16-domain、具象＋コンテナは issue-16-concrete で実装。
+- [x] `domain`: 集計ドメインサービス（`summarize` / `render_summary`、I/O 無し）
+- [x] `domain`: 通知ポート（`Notifier`）・サマリ値オブジェクト（`Summary` / `Notification`）
+- [x] `infrastructure`: 通知クライアント具象（`LineNotifier` = LINE Messaging API push / stdlib urllib）
+- [x] `application`: `NotifySummaryUseCase`（直近 N 日 read → 集計 → 通知 send）
+- [x] `apps/batch/handler_notify.py`（薄いアダプタ）。同一イメージから2 Lambda 関数（cmd 違い）を CDK で生成
+- [x] `IdashBatchStack` に notify Lambda ＋ 通知スケジュール（日曜 JST 09:00）＋ `notify-line` SSM の `grantRead`
+- [ ] 実デプロイ＆動作確認（ライブ依存: LINE OA 準備・SSM 実値作成・実送信検証）
+- [x] **確定**: 通知チャネル = LINE Messaging API（push） / 認証 = SSM SecureString `notify-line` / N = env `NOTIFY_DAYS` 既定7（event `days` で上書き） / 頻度・時刻 = 週次・日曜 JST 09:00
 
 ### Phase 5: BFF 実装〜デプロイ
 - [ ] `application`: `GetVisualizationData` ユースケース、`schemas`: API レスポンス DTO
@@ -396,9 +396,9 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [ ] 外部サイトのログイン認証情報の管理方式・多要素認証等の有無
 - [ ] 外部サイトの利用規約・自動アクセス可否の確認
 - [ ] サマリ通知の集計内容・サマリ項目
-- [ ] 通知チャネル（メール/Slack/LINE 等）と認証情報管理
-- [ ] 集計対象日数 N の既定値・指定方法
-- [ ] 収集頻度・通知頻度・各スケジュール時刻（JST）
+- [x] ~~通知チャネル（メール/Slack/LINE 等）と認証情報管理~~ → **LINE Messaging API（push）／ SSM SecureString `notify-line`** に確定（issue-16-concrete）
+- [x] ~~集計対象日数 N の既定値・指定方法~~ → **env `NOTIFY_DAYS` 既定7・event `days` で上書き** に確定（issue-16-concrete）
+- [x] ~~収集頻度・通知頻度・各スケジュール時刻（JST）~~ → **収集=平日 JST 09:00 ／ 通知=日曜 JST 09:00** に確定（issue-16-concrete）
 - [ ] 共有コンポーネントの packages 配置（外部サイトクライアント / 集計ロジック / 通知クライアント）
 
 ### アプリ仕様
@@ -583,7 +583,7 @@ export class IdashBffStack extends Stack {
 > **Phase 1（issue-2）での差分**（下記は Phase 3/4 完了時の最終形。現フェーズの権威ある仕様は `docs/progress/issue-2.md`）:
 > - Lambda は **プレースホルダ zip**（`lambda.Function` + `Code.fromInline` / `Runtime.PYTHON_3_13`）。`DockerImageFunction` への差替は **Phase 3**。
 > - 実装は **collect のみ**（notify は Phase 4）。collect は memory **1024** / timeout **5分** / 予約同時実行 **1**。
-> - 収集スケジュールは **JST 09:00**。
+> - 収集スケジュールは **平日のみ（Mon–Fri）JST 09:00**（土日は更新されず・メンテ多いため日次から縮退。issue-16-concrete で確定）。
 > - SSM は `fromSecureStringParameterAttributes` でインポート→`grantRead`→環境変数に **ARN**（`SHEETS_SA_PARAM_ARN` 等）。`kms:Decrypt` の明示付与は不要（`aws/ssm`）。
 > - 明示 `LogGroup`（保持 **7日** + `RemovalPolicy.DESTROY`）。
 
