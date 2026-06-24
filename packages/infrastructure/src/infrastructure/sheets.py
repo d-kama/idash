@@ -16,7 +16,7 @@ import gspread
 from gspread import Client, Worksheet
 from gspread.utils import ValueInputOption
 
-from domain.asset import PortfolioAsset
+from domain.asset import Money, PortfolioAsset, ProductAsset
 
 # credentials(SA JSON) を受け取り gspread クライアントを返すファクトリ。
 # テストではダミークライアントを `cast(Client, ...)` で注入する（注入点でのみ回避）。
@@ -67,5 +67,32 @@ class SheetsAssetRepository:
         self._worksheet_handle().append_rows(rows, value_input_option=ValueInputOption.raw)
 
     def find_by_date_range(self, from_date: date, to_date: date) -> Sequence[PortfolioAsset]:
-        # read 系（行→基準日グループ化で PortfolioAsset 再構成）は後続タスクで実装する。
-        raise NotImplementedError
+        # 全行取得 → col1 を基準日として解釈し、閉区間 [from_date, to_date] の行のみ採用。
+        # ヘッダ（"base_date"）や空行は col1 が date.fromisoformat で解釈できないため
+        # 自然にスキップされる（ヘッダ有無に頑健）。金額3列は save が ValueInputOption.raw
+        # で生整数を保存しているため `Money(int(cell))` で exact round-trip する。
+        rows = self._worksheet_handle().get_all_values()
+
+        products_by_date: dict[date, list[ProductAsset]] = {}
+        for row in rows:
+            if len(row) < 5:
+                continue
+            try:
+                base_date = date.fromisoformat(str(row[0]).strip())
+            except ValueError:
+                continue  # ヘッダ / 空行 / 日付以外の col1 はスキップ。
+            if not (from_date <= base_date <= to_date):
+                continue
+            product = ProductAsset(
+                name=str(row[1]),
+                contribution=Money(int(row[2])),
+                profit_loss=Money(int(row[3])),
+                valuation=Money(int(row[4])),
+            )
+            products_by_date.setdefault(base_date, []).append(product)
+
+        # 基準日昇順で PortfolioAsset を再構成（区間内 0 件もあり得る）。
+        return [
+            PortfolioAsset(base_date=base_date, products=tuple(products))
+            for base_date, products in sorted(products_by_date.items())
+        ]
