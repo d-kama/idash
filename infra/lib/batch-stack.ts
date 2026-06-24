@@ -14,14 +14,17 @@ export interface IdashBatchStackProps extends StackProps {
 }
 
 /**
- * データ収集バッチの infra。
+ * バッチ（collect / notify）の infra。
  *
- * collect（データ収集）Lambda のみ（notify は Phase 4 = 別タスク）。
+ * collect（データ収集・平日 09:00 JST）と notify（サマリ通知・日曜 09:00 JST）の
+ * 2 つの Lambda。
  * - Lambda はコンテナイメージ（`DockerImageFunction.fromImageAsset`）。版ピン chrome を
  *   同梱した `apps/batch/Dockerfile` を build context = リポジトリルートでビルドする
- *   （Docker ビルドは synth ではなく deploy 時に走る）。
+ *   （Docker ビルドは synth ではなく deploy 時に走る）。collect / notify は同一イメージを
+ *   共有し、`cmd` で関数ごとにハンドラを上書きする（image asset のフィンガープリントは
+ *   不変＝1回ビルドして 2 関数が参照）。
  * - スクレイピング失敗時のエラーページ証跡を保存する S3 バケットを併設する
- *   （`S3ErrorPageStore` の書き込み先 = env `ERROR_PAGE_BUCKET`）。
+ *   （`S3ErrorPageStore` の書き込み先 = env `ERROR_PAGE_BUCKET`。collect のみ書き込み）。
  */
 export class IdashBatchStack extends Stack {
   constructor(scope: Construct, id: string, props: IdashBatchStackProps) {
@@ -30,6 +33,7 @@ export class IdashBatchStack extends Stack {
 
     const sheetsSaParamName = `/idash/${envName}/sheets-sa`;
     const sourceLoginParamName = `/idash/${envName}/source-login`;
+    const notifyLineParamName = `/idash/${envName}/notify-line`;
 
     // SSM SecureString は CDK では作成しない（CloudFormation が SecureString を作成不可）。
     // 事前作成済みパラメータを名前でインポートする。
@@ -42,6 +46,11 @@ export class IdashBatchStack extends Stack {
       this,
       'SourceLogin',
       { parameterName: sourceLoginParamName },
+    );
+    const notifyLineParam = StringParameter.fromSecureStringParameterAttributes(
+      this,
+      'NotifyLine',
+      { parameterName: notifyLineParamName },
     );
 
     // スクレイピング失敗時のエラーページ証跡（HTML）を保存する S3 バケット。
@@ -99,14 +108,58 @@ export class IdashBatchStack extends Stack {
     // エラーページ保存は PutObject のみ（S3ErrorPageStore.save）→ grantWrite で十分。
     errorPageBucket.grantWrite(collectFn);
 
-    // 収集スケジュール: 日次 JST 09:00（Asia/Tokyo）。
+    // 収集スケジュール: 平日のみ（Mon–Fri）JST 09:00（Asia/Tokyo）。
+    // 土日は更新されず・メンテも多いため日次から平日のみへ縮退（notify の日曜 09:00 とも競合しない）。
     new Schedule(this, 'DailyCollect', {
       schedule: ScheduleExpression.cron({
         minute: '0',
         hour: '9',
+        weekDay: 'MON-FRI',
         timeZone: TimeZone.ASIA_TOKYO,
       }),
       target: new LambdaInvoke(collectFn, {}),
+    });
+
+    // サマリ通知 Lambda（収集と同一イメージを cmd 違いで再利用）。
+    // notify は Sheets read + LINE 通知のみで軽量（chrome 起動なし）。memory 512 / timeout 1分。
+    const notifyLogGroup = new LogGroup(this, 'NotifyFnLogGroup', {
+      retention: RetentionDays.ONE_WEEK,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+
+    const notifyFn = new DockerImageFunction(this, 'NotifyFn', {
+      code: DockerImageCode.fromImageAsset(repoRoot, {
+        file: 'apps/batch/Dockerfile',
+        // notify ハンドラを CMD として上書き（image asset は collect と同一＝1回ビルド）。
+        cmd: ['batch.handler_notify.handler'],
+        ignoreMode: IgnoreMode.DOCKER,
+      }),
+      memorySize: 512,
+      timeout: Duration.minutes(1),
+      reservedConcurrentExecutions: 1, // 同時実行ハードキャップ（コスト暴発対策）
+      logGroup: notifyLogGroup,
+      environment: {
+        ENV_NAME: envName,
+        SHEETS_SA_PARAM_ARN: sheetsSaParam.parameterArn,
+        NOTIFY_LINE_PARAM_ARN: notifyLineParam.parameterArn,
+        NOTIFY_DAYS: '7',
+      },
+    });
+
+    // SSM 読取権限（sheets-sa は read 用に再利用 / notify-line は LINE トークン）。
+    // エラーページ S3 は notify では使わないため付与しない。
+    sheetsSaParam.grantRead(notifyFn);
+    notifyLineParam.grantRead(notifyFn);
+
+    // 通知スケジュール: 週次・日曜 JST 09:00（Asia/Tokyo）。
+    new Schedule(this, 'WeeklyNotify', {
+      schedule: ScheduleExpression.cron({
+        minute: '0',
+        hour: '9',
+        weekDay: 'SUN',
+        timeZone: TimeZone.ASIA_TOKYO,
+      }),
+      target: new LambdaInvoke(notifyFn, {}),
     });
   }
 }

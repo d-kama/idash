@@ -18,7 +18,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:8c39edcc631d37cf341cd5b11a85eb7f2d88db64be26ad546f13ad49c50c07e4",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:abb8cd98d4b9e1ac7c1db1a628afb89dfb5bb1bc01ab45e54931ebd7e217cb49",
           },
         },
         "Environment": {
@@ -223,7 +223,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
         "FlexibleTimeWindow": {
           "Mode": "OFF",
         },
-        "ScheduleExpression": "cron(0 9 * * ? *)",
+        "ScheduleExpression": "cron(0 9 ? * MON-FRI *)",
         "ScheduleExpressionTimezone": "Asia/Tokyo",
         "State": "ENABLED",
         "Target": {
@@ -315,6 +315,183 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       },
       "Type": "AWS::S3::BucketPolicy",
     },
+    "NotifyFn73D5825E": {
+      "DependsOn": [
+        "NotifyFnServiceRoleDefaultPolicy1CDEFE4C",
+        "NotifyFnServiceRoleAEF697F4",
+      ],
+      "Properties": {
+        "Code": {
+          "ImageUri": {
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:abb8cd98d4b9e1ac7c1db1a628afb89dfb5bb1bc01ab45e54931ebd7e217cb49",
+          },
+        },
+        "Environment": {
+          "Variables": {
+            "ENV_NAME": "dev",
+            "NOTIFY_DAYS": "7",
+            "NOTIFY_LINE_PARAM_ARN": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition",
+                  },
+                  ":ssm:ap-northeast-1:",
+                  {
+                    "Ref": "AWS::AccountId",
+                  },
+                  ":parameter/idash/dev/notify-line",
+                ],
+              ],
+            },
+            "SHEETS_SA_PARAM_ARN": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition",
+                  },
+                  ":ssm:ap-northeast-1:",
+                  {
+                    "Ref": "AWS::AccountId",
+                  },
+                  ":parameter/idash/dev/sheets-sa",
+                ],
+              ],
+            },
+          },
+        },
+        "ImageConfig": {
+          "Command": [
+            "batch.handler_notify.handler",
+          ],
+        },
+        "LoggingConfig": {
+          "LogGroup": {
+            "Ref": "NotifyFnLogGroupCD56C765",
+          },
+        },
+        "MemorySize": 512,
+        "PackageType": "Image",
+        "ReservedConcurrentExecutions": 1,
+        "Role": {
+          "Fn::GetAtt": [
+            "NotifyFnServiceRoleAEF697F4",
+            "Arn",
+          ],
+        },
+        "Timeout": 60,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "NotifyFnLogGroupCD56C765": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "RetentionInDays": 7,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "NotifyFnServiceRoleAEF697F4": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "NotifyFnServiceRoleDefaultPolicy1CDEFE4C": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:ap-northeast-1:",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/idash/dev/sheets-sa",
+                  ],
+                ],
+              },
+            },
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:ap-northeast-1:",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/idash/dev/notify-line",
+                  ],
+                ],
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "NotifyFnServiceRoleDefaultPolicy1CDEFE4C",
+        "Roles": [
+          {
+            "Ref": "NotifyFnServiceRoleAEF697F4",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
     "SchedulerRoleForTarget3a8f0b61CD8EDC": {
       "Properties": {
         "AssumeRolePolicyDocument": {
@@ -396,6 +573,117 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
         ],
       },
       "Type": "AWS::IAM::Policy",
+    },
+    "SchedulerRoleForTarget464033BF3E29B4": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Condition": {
+                "StringEquals": {
+                  "aws:SourceAccount": {
+                    "Ref": "AWS::AccountId",
+                  },
+                  "aws:SourceArn": {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition",
+                        },
+                        ":scheduler:ap-northeast-1:",
+                        {
+                          "Ref": "AWS::AccountId",
+                        },
+                        ":schedule-group/default",
+                      ],
+                    ],
+                  },
+                },
+              },
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "scheduler.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "SchedulerRoleForTarget464033DefaultPolicyB15478C7": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "lambda:InvokeFunction",
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "NotifyFn73D5825E",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "NotifyFn73D5825E",
+                          "Arn",
+                        ],
+                      },
+                      ":*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "SchedulerRoleForTarget464033DefaultPolicyB15478C7",
+        "Roles": [
+          {
+            "Ref": "SchedulerRoleForTarget464033BF3E29B4",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "WeeklyNotify2A7681FB": {
+      "Properties": {
+        "FlexibleTimeWindow": {
+          "Mode": "OFF",
+        },
+        "ScheduleExpression": "cron(0 9 ? * SUN *)",
+        "ScheduleExpressionTimezone": "Asia/Tokyo",
+        "State": "ENABLED",
+        "Target": {
+          "Arn": {
+            "Fn::GetAtt": [
+              "NotifyFn73D5825E",
+              "Arn",
+            ],
+          },
+          "RetryPolicy": {
+            "MaximumEventAgeInSeconds": 86400,
+            "MaximumRetryAttempts": 185,
+          },
+          "RoleArn": {
+            "Fn::GetAtt": [
+              "SchedulerRoleForTarget464033BF3E29B4",
+              "Arn",
+            ],
+          },
+        },
+      },
+      "Type": "AWS::Scheduler::Schedule",
     },
   },
   "Rules": {
