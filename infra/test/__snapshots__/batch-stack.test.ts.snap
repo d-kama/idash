@@ -10,6 +10,35 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
     },
   },
   "Resources": {
+    "BatchAlertTopic4FBFDE52": {
+      "Type": "AWS::SNS::Topic",
+    },
+    "CollectErrorsAlarm4D3352B9": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "BatchAlertTopic4FBFDE52",
+          },
+        ],
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "CollectFn65CC4EC9",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Errors",
+        "Namespace": "AWS/Lambda",
+        "Period": 300,
+        "Statistic": "Sum",
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
+    },
     "CollectFn65CC4EC9": {
       "DependsOn": [
         "CollectFnServiceRoleDefaultPolicy62B683B3",
@@ -235,7 +264,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
           },
           "RetryPolicy": {
             "MaximumEventAgeInSeconds": 86400,
-            "MaximumRetryAttempts": 185,
+            "MaximumRetryAttempts": 0,
           },
           "RoleArn": {
             "Fn::GetAtt": [
@@ -314,6 +343,32 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
         },
       },
       "Type": "AWS::S3::BucketPolicy",
+    },
+    "NotifyErrorsAlarm05613239": {
+      "Properties": {
+        "AlarmActions": [
+          {
+            "Ref": "BatchAlertTopic4FBFDE52",
+          },
+        ],
+        "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+        "Dimensions": [
+          {
+            "Name": "FunctionName",
+            "Value": {
+              "Ref": "NotifyFn73D5825E",
+            },
+          },
+        ],
+        "EvaluationPeriods": 1,
+        "MetricName": "Errors",
+        "Namespace": "AWS/Lambda",
+        "Period": 300,
+        "Statistic": "Sum",
+        "Threshold": 1,
+        "TreatMissingData": "notBreaching",
+      },
+      "Type": "AWS::CloudWatch::Alarm",
     },
     "NotifyFn73D5825E": {
       "DependsOn": [
@@ -673,7 +728,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
           },
           "RetryPolicy": {
             "MaximumEventAgeInSeconds": 86400,
-            "MaximumRetryAttempts": 185,
+            "MaximumRetryAttempts": 0,
           },
           "RoleArn": {
             "Fn::GetAtt": [
