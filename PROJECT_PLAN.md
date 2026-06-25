@@ -414,8 +414,8 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [ ] アクセス制御の確定（セクション11）: 許可IPの確定、IP変動時の秘密トークン方式への切替要否
 - [x] ~~Budgets / Cost Anomaly Detection を CDK 化するか手動設定か~~ → **不採用に決定**（Phase 2 / §11）
 - [ ] CI/CD 基盤（GitHub Actions 想定）の詳細
-- [ ] 監視・アラート（CloudWatch Logs / メトリクス / 失敗通知）方針 … **未検討**
-- [ ] バッチ失敗時のリトライ / 冪等性の方針 … **未検討**
+- [x] ~~監視・アラート（CloudWatch Logs / メトリクス / 失敗通知）方針~~ → **失敗通知を確定**（ADR-0004: CloudWatch Alarm on Lambda `Errors` → SNS Topic → Email 手動サブスク。collect/notify 各1アラーム・`notBreaching`・OK通知なし）
+- [ ] バッチ失敗時のリトライ / 冪等性の方針 … **リトライは確定**（ADR-0004: Scheduler `maximumRetryAttempts=0`＝即失敗・即通知）／**冪等性は未検討**
 
 ### バージョン確認が必要な箇所（着手時に最新を確認）
 - [ ] CDK `aws-scheduler` / `aws-scheduler-targets` の `timeZone` 指定の正確な API 形

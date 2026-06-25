@@ -1,10 +1,13 @@
 import * as path from 'node:path';
 import { Duration, IgnoreMode, RemovalPolicy, Stack, type StackProps, TimeZone } from 'aws-cdk-lib';
-import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
+import { Alarm, ComparisonOperator, TreatMissingData } from 'aws-cdk-lib/aws-cloudwatch';
+import { SnsAction } from 'aws-cdk-lib/aws-cloudwatch-actions';
+import { DockerImageCode, DockerImageFunction, type IFunction } from 'aws-cdk-lib/aws-lambda';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
 import { Schedule, ScheduleExpression } from 'aws-cdk-lib/aws-scheduler';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-scheduler-targets';
+import { Topic } from 'aws-cdk-lib/aws-sns';
 import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
@@ -72,6 +75,11 @@ export class IdashBatchStack extends Stack {
       removalPolicy: RemovalPolicy.DESTROY,
     });
 
+    // 失敗通知の宛先 SNS Topic（自動命名）。CloudWatch Alarm のアクション先。
+    // **Email サブスクは CDK で作らない**（個人アドレスを IaC に残さない。SSM SecureString を
+    // 手動作成する既存方針と同じ思想）。デプロイ後に Topic へ手動サブスク＋承認する（README 参照）。
+    const alertTopic = new Topic(this, 'BatchAlertTopic');
+
     // build context = リポジトリルート（COPY packages/ + apps/batch/ のため）。
     // infra/lib から 2 つ上がリポジトリルート。
     const repoRoot = path.join(__dirname, '../..');
@@ -108,6 +116,9 @@ export class IdashBatchStack extends Stack {
     // エラーページ保存は PutObject のみ（S3ErrorPageStore.save）→ grantWrite で十分。
     errorPageBucket.grantWrite(collectFn);
 
+    // 失敗検知アラーム（collect）。例外・timeout・OOM・起動失敗を一律 Lambda `Errors` で拾う。
+    this.addErrorsAlarm('CollectErrorsAlarm', collectFn, alertTopic);
+
     // 収集スケジュール: 平日のみ（Mon–Fri）JST 09:00（Asia/Tokyo）。
     // 土日は更新されず・メンテも多いため日次から平日のみへ縮退（notify の日曜 09:00 とも競合しない）。
     new Schedule(this, 'DailyCollect', {
@@ -117,7 +128,8 @@ export class IdashBatchStack extends Stack {
         weekDay: 'MON-FRI',
         timeZone: TimeZone.ASIA_TOKYO,
       }),
-      target: new LambdaInvoke(collectFn, {}),
+      // retryAttempts=0: リトライせず即失敗・即アラーム化（ADR-0004）。
+      target: new LambdaInvoke(collectFn, { retryAttempts: 0 }),
     });
 
     // サマリ通知 Lambda（収集と同一イメージを cmd 違いで再利用）。
@@ -151,6 +163,9 @@ export class IdashBatchStack extends Stack {
     sheetsSaParam.grantRead(notifyFn);
     notifyLineParam.grantRead(notifyFn);
 
+    // 失敗検知アラーム（notify）。collect と別アラームにし、どちらが落ちたか即わかるようにする。
+    this.addErrorsAlarm('NotifyErrorsAlarm', notifyFn, alertTopic);
+
     // 通知スケジュール: 週次・日曜 JST 09:00（Asia/Tokyo）。
     new Schedule(this, 'WeeklyNotify', {
       schedule: ScheduleExpression.cron({
@@ -159,7 +174,26 @@ export class IdashBatchStack extends Stack {
         weekDay: 'SUN',
         timeZone: TimeZone.ASIA_TOKYO,
       }),
-      target: new LambdaInvoke(notifyFn, {}),
+      // retryAttempts=0: リトライせず即失敗・即アラーム化（ADR-0004）。
+      target: new LambdaInvoke(notifyFn, { retryAttempts: 0 }),
     });
+  }
+
+  /**
+   * Lambda の `Errors` メトリクスに失敗検知アラームを張り、SNS Topic をアクションに配線する。
+   *
+   * 低頻度バッチ向けに `Sum ≥ 1` / `evaluationPeriods=1` / `treatMissingData=notBreaching`
+   * （データ無しを誤発報しない）。collect / notify で別アラームを作るため fn ごとに呼ぶ。
+   * OK（復旧）通知は付けない（次回成功＝復旧が自明なバッチのため不要）。
+   */
+  private addErrorsAlarm(id: string, fn: IFunction, topic: Topic): void {
+    const alarm = new Alarm(this, id, {
+      metric: fn.metricErrors({ period: Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      comparisonOperator: ComparisonOperator.GREATER_THAN_OR_EQUAL_TO_THRESHOLD,
+      treatMissingData: TreatMissingData.NOT_BREACHING,
+    });
+    alarm.addAlarmAction(new SnsAction(topic));
   }
 }

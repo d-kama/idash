@@ -99,3 +99,20 @@ pnpm --filter @idash/infra exec cdk bootstrap aws://<ACCOUNT_ID>/ap-northeast-1
 # 3) デプロイ
 pnpm --filter @idash/infra exec cdk deploy --require-approval never
 ```
+
+#### デプロイ後: バッチ失敗通知の Email サブスク（IaC 外・手動）
+
+バッチ失敗は CloudWatch Alarm（Lambda `Errors`）→ SNS Topic で検知する（ADR-0004）。
+**Email サブスクは個人アドレスを IaC に残さないため CDK では作成しない。** 初回デプロイ後に手動で追加し、
+届く確認メールのリンクから承認する（承認するまで通知は飛ばない）。
+
+```bash
+# Topic ARN を取得（Console > SNS でも可）
+aws sns list-topics --query "Topics[?contains(TopicArn, 'BatchAlertTopic')].TopicArn" --output text
+
+# Email サブスクを追加 → 届いた確認メールを承認
+aws sns subscribe \
+  --topic-arn <TOPIC_ARN> \
+  --protocol email \
+  --notification-endpoint <YOUR_EMAIL_ADDRESS>
+```
