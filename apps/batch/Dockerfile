@@ -26,7 +26,7 @@ FROM public.ecr.aws/lambda/python:3.13 AS chrome
 
 # CfT のピン版。直近 stable を選定（chrome-headless-shell と chromedriver は
 # 同一ビルド番号で一致させる＝ADR-0003 の版ピン）。
-# TODO(フェーズ4.3/4.4): 実サイト検証・実デプロイ時に直近 stable へ調整可。
+# TODO: 実サイト検証・実デプロイ時に直近 stable へ調整可。
 # 版一覧: https://googlechromelabs.github.io/chrome-for-testing/
 ARG CFT_VERSION=131.0.6778.108
 

@@ -324,7 +324,7 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [x] スナップショットテスト、`task synth` / `task check` グリーン
 - [x] 実 deploy 手順を文書化（実 deploy はユーザー実施 / README に記載）
 - [x] EventBridge Scheduler L2/L1 の判定 → **解決**: aws-cdk-lib 2.259.0 で L2 `Schedule` が stable のため **L2 採用**（L1 フォールバック不要）
-- [ ] **残 TODO（後続で解消）**: Lambda はプレースホルダ（Phase 3 でコンテナ化＝`DockerImageFunction` へ差替・snapshot 撮り直し）、notify は Phase 4、実 deploy はユーザー再認証後に実施
+- [x] **残 TODO 解消済み**: Lambda は Phase 3 で `DockerImageFunction` へ差替済み（snapshot 撮り直し済み）、notify は Phase 4 で追加済み。実 deploy はユーザー再認証後に実施（ライブ依存として未了）
 
 ### Phase 2: CI/CD（GitHub Actions）（grill 済み / issue-3）
 > 単一ワークフロー `cicd.yml` で **CI（PR 検証）と CD（main 自動 deploy ＋ 手動）** を束ねる。デプロイ対象は当面 `IdashBatchStack`（プレースホルダ）のみだが、パイプラインを早期に疎通検証する。
@@ -338,21 +338,21 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
   - Docker ビルドキャッシュ（ルート context）は Dockerfile が出る **Phase 3** から
   - AWS Budgets / Cost Anomaly Detection は**不採用**（本プロジェクトでは入れない）
 
-### Phase 3: データ収集バッチ 実装〜デプロイ
+### Phase 3: データ収集バッチ 実装〜デプロイ（コード完了 / issue-8・issue-8-concrete・issue-8-container）
 > 関連 `packages`（collect 経路）＋ `apps/batch` collect ＋ Dockerfile ＋ コンテナ Lambda 化 ＋ デプロイまで。
-- [ ] `domain`: DC年金ドメインモデル・ポート（リポジトリ/外部サイト interface）… **TODO: モデル項目・シグネチャ**
-- [ ] `schemas`: 収集 I/O の Pydantic スキーマ … **TODO: 項目**
-- [ ] `infrastructure`: `domain` ポートの具象（Google Sheets: gspread 等、外部サイトクライアント）… **TODO: シート構造・接続方式**
-- [ ] `common`: 設定ローダ / Parameter Store（SecureString）取得 / ロギング基盤
-- [ ] `application`: `CollectPensionData` ユースケース（domain・schemas のみ依存、フレームワーク非依存）
-- [ ] `apps/batch/handler_collect.py`（薄いアダプタ。具象を DI して呼ぶ）
-- [ ] `apps/batch/Dockerfile`（uv workspace 解決込み。ルートを context に `COPY packages/`、`uv sync --package batch --no-dev --frozen`）
-- [ ] `IdashBatchStack` の collect Lambda を **プレースホルダ → `DockerImageFunction.fromImageAsset` へ差替**（必要なら memory 2048 へ）。snapshot 更新
-- [ ] 収集スケジュール最終確定（JST）/ Lambda 上限15分の評価（超過時 Step Functions 検討）
-- [ ] 実デプロイ＆動作確認
-- [ ] **TODO: 対象サイト・収集項目・収集ロジック / 認証情報・多要素認証の有無 / 利用規約・自動アクセス可否**
+- [x] `domain`: 資産モデル（`Money` / `ProductAsset` / `PortfolioAsset` / `AssetTotal`）・収集ポート（`Scraper` / `ScraperSession`・`AssetRepository`・`Clock`）・`Credentials` / `ErrorPage`（`domain/asset.py` / `domain/collection.py` / `domain/clock.py`）
+- [ ] `schemas`: 収集経路では未使用（Phase 5 BFF で本格利用）。現状は空スタブ
+- [x] `infrastructure`: `domain` ポートの具象（`SheetsAssetRepository`=gspread / `SeleniumScraper`=版ピン chrome / `S3ErrorPageStore` / `SystemClock`）
+- [x] `common`: 設定ローダ（`settings.py`）/ Parameter Store SecureString 取得（`ssm.py`）/ ロギング基盤（`logging.py`）
+- [x] `application`: `CollectPensionData` ユースケース（`application/collection.py`、domain のみ依存・フレームワーク非依存）
+- [x] `apps/batch/handler_collect.py`（薄いアダプタ。具象を DI して呼ぶ composition root）
+- [x] `apps/batch/Dockerfile`（uv workspace 解決込み。ルートを context に `COPY packages/`、`uv sync --no-editable`。No module named 'batch' 回避済み）
+- [x] `IdashBatchStack` の collect Lambda を `DockerImageFunction.fromImageAsset` 化（memory 2048 / timeout 10分 / 予約同時実行 1）。snapshot 更新済み。固定名を外し自動命名へ
+- [x] 収集スケジュール確定: 平日（Mon–Fri）JST 09:00（土日は更新されずメンテ多いため日次から縮退）
+- [ ] 実デプロイ＆動作確認（ライブ依存: SSM 実値作成・実サイト接続検証）
+- [x] **確定**: 対象サイトへ Selenium ＋版ピン chrome でログイン → ポートフォリオ取得（ADR-0002 セッション方式 / ADR-0003 版ピン chrome）。認証情報は SSM SecureString `source-login`
 
-### Phase 4: サマリ通知バッチ 実装〜デプロイ
+### Phase 4: サマリ通知バッチ 実装〜デプロイ（✅ 完了 / issue-16-domain・issue-16-concrete）
 > Sheets を介してのみ collect と連携（疎結合）。抽象層は issue-16-domain、具象＋コンテナは issue-16-concrete で実装。
 - [x] `domain`: 集計ドメインサービス（`summarize` / `render_summary`、I/O 無し）
 - [x] `domain`: 通知ポート（`Notifier`）・サマリ値オブジェクト（`Summary` / `Notification`）
@@ -360,7 +360,7 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [x] `application`: `NotifySummaryUseCase`（直近 N 日 read → 集計 → 通知 send）
 - [x] `apps/batch/handler_notify.py`（薄いアダプタ）。同一イメージから2 Lambda 関数（cmd 違い）を CDK で生成
 - [x] `IdashBatchStack` に notify Lambda ＋ 通知スケジュール（日曜 JST 09:00）＋ `notify-line` SSM の `grantRead`
-- [ ] 実デプロイ＆動作確認（ライブ依存: LINE OA 準備・SSM 実値作成・実送信検証）
+- [x] 実デプロイ＆動作確認（LINE OA 準備・SSM 実値作成・実送信検証まで完了）
 - [x] **確定**: 通知チャネル = LINE Messaging API（push） / 認証 = SSM SecureString `notify-line` / N = env `NOTIFY_DAYS` 既定7（event `days` で上書き） / 頻度・時刻 = 週次・日曜 JST 09:00
 
 ### Phase 5: BFF 実装〜デプロイ
@@ -389,17 +389,17 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 実装着手前〜途中で確定が必要な事項を集約。
 
 ### ドメイン・データ
-- [ ] DC年金ドメインモデルの項目（口座 / 拠出記録 / 運用商品マスタ / 残高 など）
-- [ ] Google Spreadsheet のシート設計（テーブル構造・カラム・キー）
-- [ ] データ収集元（対象 DC年金サイト）と収集項目・収集ロジック
-- [ ] 外部サイトの接続方式（公開API有無 / スクレイピング / ヘッドレスブラウザ）
-- [ ] 外部サイトのログイン認証情報の管理方式・多要素認証等の有無
-- [ ] 外部サイトの利用規約・自動アクセス可否の確認
-- [ ] サマリ通知の集計内容・サマリ項目
+- [x] ~~DC年金ドメインモデルの項目~~ → **資産サブドメインで確定**（`Money` / `ProductAsset` / `PortfolioAsset` / `AssetTotal`。`CONTEXT.md` 参照）
+- [x] ~~Google Spreadsheet のシート設計~~ → **`SheetsAssetRepository` / `SheetsConfig` で確定**（基準日キーで append、`find_by_date_range` で read）
+- [x] ~~データ収集元と収集項目・収集ロジック~~ → **対象サイトへログイン → ポートフォリオ取得 → Sheets へ write**（`SeleniumScraper`）
+- [x] ~~外部サイトの接続方式~~ → **Selenium ＋版ピン chrome（ヘッドレス）**（ADR-0002 セッション方式 / ADR-0003 版ピン chrome）
+- [x] ~~外部サイトのログイン認証情報の管理方式~~ → **SSM SecureString `source-login`（`Credentials`=user_id/password/birthdate）**。多要素認証は対象サイト非対応の前提
+- [ ] 外部サイトの利用規約・自動アクセス可否の確認（運用前にユーザー側で確認）
+- [x] ~~サマリ通知の集計内容・サマリ項目~~ → **`summarize` で確定**（最新合計 / 損益率 / 期間の評価額・損益変化。`domain/notification.py`）
 - [x] ~~通知チャネル（メール/Slack/LINE 等）と認証情報管理~~ → **LINE Messaging API（push）／ SSM SecureString `notify-line`** に確定（issue-16-concrete）
 - [x] ~~集計対象日数 N の既定値・指定方法~~ → **env `NOTIFY_DAYS` 既定7・event `days` で上書き** に確定（issue-16-concrete）
 - [x] ~~収集頻度・通知頻度・各スケジュール時刻（JST）~~ → **収集=平日 JST 09:00 ／ 通知=日曜 JST 09:00** に確定（issue-16-concrete）
-- [ ] 共有コンポーネントの packages 配置（外部サイトクライアント / 集計ロジック / 通知クライアント）
+- [x] ~~共有コンポーネントの packages 配置~~ → **`infrastructure`（scraper / sheets / notifier / error_store / clock の具象）に確定**。集計は `domain` のドメインサービス
 
 ### アプリ仕様
 - [ ] BFF が公開するエンドポイント一覧とレスポンススキーマ
@@ -413,14 +413,14 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [ ] 配信用キャッシュ層（S3-JSON）の採否（セクション 9）
 - [ ] アクセス制御の確定（セクション11）: 許可IPの確定、IP変動時の秘密トークン方式への切替要否
 - [x] ~~Budgets / Cost Anomaly Detection を CDK 化するか手動設定か~~ → **不採用に決定**（Phase 2 / §11）
-- [ ] CI/CD 基盤（GitHub Actions 想定）の詳細
+- [x] ~~CI/CD 基盤（GitHub Actions 想定）の詳細~~ → **`cicd.yml` 単一ワークフローで確定**（Phase 2 / ADR-0001 OIDC。issue-3）
 - [x] ~~監視・アラート（CloudWatch Logs / メトリクス / 失敗通知）方針~~ → **失敗通知を確定**（ADR-0004: CloudWatch Alarm on Lambda `Errors` → SNS Topic → Email 手動サブスク。collect/notify 各1アラーム・`notBreaching`・OK通知なし）
 - [ ] バッチ失敗時のリトライ / 冪等性の方針 … **リトライは確定**（ADR-0004: Scheduler `maximumRetryAttempts=0`＝即失敗・即通知）／**冪等性は未検討**
 
 ### バージョン確認が必要な箇所（着手時に最新を確認）
-- [ ] CDK `aws-scheduler` / `aws-scheduler-targets` の `timeZone` 指定の正確な API 形
-- [ ] CDK の Lambda 関連モジュール、Lambda ランタイム最新状況
-- [ ] `openapi-typescript` の最新利用方法
+- [x] ~~CDK `aws-scheduler` の `timeZone` 指定の正確な API 形~~ → **L2 `Schedule` + `ScheduleExpression.cron({ timeZone })` で確定**（aws-cdk-lib 2.259.0 で stable。Phase 1）
+- [x] ~~CDK の Lambda 関連モジュール、Lambda ランタイム最新状況~~ → **`DockerImageFunction`（コンテナ Lambda）で確定**（Phase 3）
+- [ ] `openapi-typescript` の最新利用方法（Phase 5 着手時に確認）
 
 ---
 

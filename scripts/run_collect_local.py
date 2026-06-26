@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """データ収集バッチをローカルで実行する検証ランナー（ライブ依存）。
 
-issue-8-container フェーズ5.1（実サイト検証）の支援ツール。本番の Lambda ハンドラ
+実サイト検証の支援ツール。本番の Lambda ハンドラ
 （`apps/batch/handler_collect.py`）と同じく **`CollectionUseCase.execute` を実行する
 composition root** であり、違いは「**実行元（Lambda / ローカル）に応じて差し替わる
 アダプタ群だけ**」。use case 本体・実行手順は共通。

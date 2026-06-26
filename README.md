@@ -71,8 +71,14 @@ task setup     # 依存解決（uv sync && pnpm install）
 
 ## infra（AWS CDK）
 
-`infra/` は AWS CDK（TypeScript）。現状は `IdashBatchStack`（データ収集 Lambda）の
-最小実装。Lambda はプレースホルダ（Phase 3 でコンテナ化予定）。
+`infra/` は AWS CDK（TypeScript）。`IdashBatchStack` にデータ収集（collect）と
+サマリ通知（notify）の 2 Lambda を持つ。**Lambda はコンテナイメージ**
+（`DockerImageFunction`、版ピン chrome を同梱した `apps/batch/Dockerfile` を
+リポジトリルートを build context にビルド）で、collect / notify は同一イメージを
+`cmd` 違いで共有する。収集は平日（Mon–Fri）JST 09:00、通知は週次・日曜 JST 09:00
+（EventBridge Scheduler）。失敗時のエラーページ証跡を保存する S3（`ErrorPageBucket`、
+collect のみ書き込み）と、失敗検知の CloudWatch Alarm（Lambda `Errors`）→ SNS Topic
+を併設する（ADR-0004）。
 
 ```bash
 # 構成確認（CloudFormation テンプレート生成。AWS 認証不要）
