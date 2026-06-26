@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 idash は iDeCo（個人型確定拠出年金）の運用状況を定期収集・蓄積し、可視化＋サマリ通知する個人利用/学習用システム。Python（batch / bff / 共有ライブラリ）と TypeScript（frontend / infra）が混在する **polyglot モノレポ**で、Python 側は **uv ワークスペース**、TypeScript 側は **pnpm ワークスペース**を並置している。
 
-実装は段階的に進行中。Phase 0（初期化）/ 1（infra 足場）/ 2（CI/CD）完了済み、Phase 3（データ収集バッチ）以降が未実装で、**`packages/*` と `apps/*` の `src/*/__init__.py` は現状ほぼ空スタブ**。設計の全体像は `PROJECT_PLAN.md`、進行中作業は `docs/progress/issue-*.md` を参照。
+実装は段階的に進行中。Phase 0（初期化）/ 1（infra 足場）/ 2（CI/CD）/ 4（サマリ通知バッチ）が完了済み（**通知=LINE push は実デプロイ＆動作確認まで完了**）。Phase 3（データ収集バッチ）はコードレベル完了で実デプロイ＆動作確認のみ残（収集=Selenium スクレイピング・コンテナ Lambda 化済み）。Phase 5（BFF）/ 6（フロントエンド）は未着手で、**`packages/schemas` と `apps/bff` の `src` は現状ほぼ空スタブ**（schemas は Phase 5 で本格利用）。設計の全体像は `PROJECT_PLAN.md`、進行中作業は `docs/progress/issue-*.md` を参照。
 
 ## ツールチェーン
 
