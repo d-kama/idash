@@ -26,7 +26,7 @@ from infrastructure.sheets import SheetsAssetRepository, SheetsConfig
 
 _logger = get_logger("idash.collect")
 
-# Lambda コンテナ内の版ピン chromium/chromedriver の配置（Dockerfile が設定; フェーズ4.1）。
+# Lambda コンテナ内の版ピン chromium/chromedriver の配置（Dockerfile が設定）。
 _DEFAULT_CHROME_BINARY = "/opt/chrome/chrome"
 _DEFAULT_CHROME_DRIVER = "/opt/chromedriver/chromedriver"
 

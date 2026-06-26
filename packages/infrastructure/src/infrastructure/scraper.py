@@ -79,7 +79,7 @@ class ScraperConfig:
     chrome_driver_path: str
     implicit_wait: int = 10
     # 移行期間中のみ必要な「転出処理中」プラン選択ステップ。
-    # TODO(フェーズ4.3): プラン移行完了後に削除する。
+    # TODO: プラン移行完了後に削除する。
     select_transferring_plan: bool = True
 
 
@@ -223,7 +223,7 @@ class SeleniumScraper:
 
     @staticmethod
     def _select_transferring_out_plan(driver: WebDriver) -> None:
-        # TODO(フェーズ4.3): プラン移行完了後に削除する過渡ステップ。
+        # 移行期間中のみ必要な過渡ステップ。TODO: プラン移行完了後に削除する。
         # プラン選択テーブルの「異動状況」セル（td[data-lang='jp']）が「転出処理中」の
         # 行を選び「決定」する。
         #
