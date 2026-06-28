@@ -47,30 +47,26 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:99bb0f96b51f34dd4b124bcbb22c92f87a5a427b7e656e8156b6d92d041e7ab9",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:2e8dd7a1b1a024fcfe085750c271a3f0891addbc037e368cc59991bfa1e22aed",
           },
         },
         "Environment": {
           "Variables": {
-            "ENV_NAME": "dev",
-            "ERROR_PAGE_BUCKET": {
-              "Ref": "ErrorPageBucketFD04CE26",
-            },
-            "SHEETS_SA_PARAM_ARN": {
+            "DATA_LOCATION": {
               "Fn::Join": [
                 "",
                 [
-                  "arn:",
+                  "s3://",
                   {
-                    "Ref": "AWS::Partition",
+                    "Ref": "DataBucketE3889A50",
                   },
-                  ":ssm:ap-northeast-1:",
-                  {
-                    "Ref": "AWS::AccountId",
-                  },
-                  ":parameter/idash/dev/sheets-sa",
+                  "/assets.parquet",
                 ],
               ],
+            },
+            "ENV_NAME": "dev",
+            "ERROR_PAGE_BUCKET": {
+              "Ref": "ErrorPageBucketFD04CE26",
             },
             "SOURCE_LOGIN_PARAM_ARN": {
               "Fn::Join": [
@@ -140,31 +136,6 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
                     {
                       "Ref": "AWS::AccountId",
                     },
-                    ":parameter/idash/dev/sheets-sa",
-                  ],
-                ],
-              },
-            },
-            {
-              "Action": [
-                "ssm:DescribeParameters",
-                "ssm:GetParameters",
-                "ssm:GetParameter",
-                "ssm:GetParameterHistory",
-              ],
-              "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:",
-                    {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":ssm:ap-northeast-1:",
-                    {
-                      "Ref": "AWS::AccountId",
-                    },
                     ":parameter/idash/dev/source-login",
                   ],
                 ],
@@ -195,6 +166,43 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
                       {
                         "Fn::GetAtt": [
                           "ErrorPageBucketFD04CE26",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+                "s3:DeleteObject*",
+                "s3:PutObject",
+                "s3:PutObjectLegalHold",
+                "s3:PutObjectRetention",
+                "s3:PutObjectTagging",
+                "s3:PutObjectVersionTagging",
+                "s3:Abort*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "DataBucketE3889A50",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "DataBucketE3889A50",
                           "Arn",
                         ],
                       },
@@ -275,6 +283,79 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
         },
       },
       "Type": "AWS::Scheduler::Schedule",
+    },
+    "DataBucketE3889A50": {
+      "DeletionPolicy": "Retain",
+      "Properties": {
+        "LifecycleConfiguration": {
+          "Rules": [
+            {
+              "NoncurrentVersionExpiration": {
+                "NoncurrentDays": 90,
+              },
+              "Status": "Enabled",
+            },
+          ],
+        },
+        "PublicAccessBlockConfiguration": {
+          "BlockPublicAcls": true,
+          "BlockPublicPolicy": true,
+          "IgnorePublicAcls": true,
+          "RestrictPublicBuckets": true,
+        },
+        "VersioningConfiguration": {
+          "Status": "Enabled",
+        },
+      },
+      "Type": "AWS::S3::Bucket",
+      "UpdateReplacePolicy": "Retain",
+    },
+    "DataBucketPolicy3231C704": {
+      "Properties": {
+        "Bucket": {
+          "Ref": "DataBucketE3889A50",
+        },
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "s3:*",
+              "Condition": {
+                "Bool": {
+                  "aws:SecureTransport": "false",
+                },
+              },
+              "Effect": "Deny",
+              "Principal": {
+                "AWS": "*",
+              },
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "DataBucketE3889A50",
+                    "Arn",
+                  ],
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "DataBucketE3889A50",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+      },
+      "Type": "AWS::S3::BucketPolicy",
     },
     "ErrorPageBucketFD04CE26": {
       "DeletionPolicy": "Delete",
@@ -378,11 +459,23 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:99bb0f96b51f34dd4b124bcbb22c92f87a5a427b7e656e8156b6d92d041e7ab9",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:2e8dd7a1b1a024fcfe085750c271a3f0891addbc037e368cc59991bfa1e22aed",
           },
         },
         "Environment": {
           "Variables": {
+            "DATA_LOCATION": {
+              "Fn::Join": [
+                "",
+                [
+                  "s3://",
+                  {
+                    "Ref": "DataBucketE3889A50",
+                  },
+                  "/assets.parquet",
+                ],
+              ],
+            },
             "ENV_NAME": "dev",
             "NOTIFY_DAYS": "7",
             "NOTIFY_LINE_PARAM_ARN": {
@@ -398,22 +491,6 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
                     "Ref": "AWS::AccountId",
                   },
                   ":parameter/idash/dev/notify-line",
-                ],
-              ],
-            },
-            "SHEETS_SA_PARAM_ARN": {
-              "Fn::Join": [
-                "",
-                [
-                  "arn:",
-                  {
-                    "Ref": "AWS::Partition",
-                  },
-                  ":ssm:ap-northeast-1:",
-                  {
-                    "Ref": "AWS::AccountId",
-                  },
-                  ":parameter/idash/dev/sheets-sa",
                 ],
               ],
             },
@@ -505,35 +582,40 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
                     {
                       "Ref": "AWS::AccountId",
                     },
-                    ":parameter/idash/dev/sheets-sa",
+                    ":parameter/idash/dev/notify-line",
                   ],
                 ],
               },
             },
             {
               "Action": [
-                "ssm:DescribeParameters",
-                "ssm:GetParameters",
-                "ssm:GetParameter",
-                "ssm:GetParameterHistory",
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
               ],
               "Effect": "Allow",
-              "Resource": {
-                "Fn::Join": [
-                  "",
-                  [
-                    "arn:",
-                    {
-                      "Ref": "AWS::Partition",
-                    },
-                    ":ssm:ap-northeast-1:",
-                    {
-                      "Ref": "AWS::AccountId",
-                    },
-                    ":parameter/idash/dev/notify-line",
+              "Resource": [
+                {
+                  "Fn::GetAtt": [
+                    "DataBucketE3889A50",
+                    "Arn",
                   ],
-                ],
-              },
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::GetAtt": [
+                          "DataBucketE3889A50",
+                          "Arn",
+                        ],
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
             },
           ],
           "Version": "2012-10-17",
