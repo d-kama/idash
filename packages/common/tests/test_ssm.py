@@ -8,8 +8,8 @@ from moto import mock_aws
 
 from common import ssm
 
-NAME = "/idash/dev/sheets-sa"
-PAYLOAD = {"spreadsheet_id": "abc123", "sheet_name": "assets"}
+NAME = "/idash/dev/notify-line"
+PAYLOAD = {"channel_access_token": "abc123", "to": "Uxxxxxxxx"}
 
 
 @mock_aws
@@ -29,7 +29,7 @@ def test_get_secure_json_caches_first_value() -> None:
     # SSM 側の値を更新しても、キャッシュ済みのため取得結果は変わらない（コールドスタートのみ取得）。
     client.put_parameter(
         Name=NAME,
-        Value=json.dumps({"spreadsheet_id": "changed"}),
+        Value=json.dumps({"channel_access_token": "changed"}),
         Type="SecureString",
         Overwrite=True,
     )

@@ -8,8 +8,8 @@
 
   役割        | Lambda（handler_notify）   | ローカル（本スクリプト）
   ------------|----------------------------|-------------------------------------
-  設定源      | SSM SecureString(2本)      | ローカル JSON（`*.local.json`）
-  Repository  | `SheetsAssetRepository`    | `SheetsAssetRepository`（実 read・同一）
+  設定源      | SSM SecureString(1本)      | ローカル JSON（`*.local.json`）
+  Repository  | `DuckDbAssetRepository`    | `DuckDbAssetRepository`（実 read・同一）
   Notifier    | `LineNotifier`（実送信）   | `LineNotifier`（`--send` 時のみ実送信／既定 print）
   Clock       | `SystemClock`              | `SystemClock`（同一）
   実行        | `execute(days)`            | `execute(days)`（同一）
@@ -23,18 +23,16 @@ dry-run する（`infrastructure` の公開面は広げない）。
 
 ローカル JSON（既定 ./notify.local.json, *.local.json は gitignore 済み）の形:
   {
-    "sheets": {
-      "spreadsheet_id": "...",
-      "sheet_name": "...",
-      "credentials": { ... service account JSON ... }
-    },
+    // データストアの read 元。ローカル Parquet パス（例 "./data.local.parquet"）または
+    // "s3://bucket/key.parquet"（実行環境の AWS 認証を使用）。
+    "data_location": "./data.local.parquet",
     "line": {                          // --dry-run では未使用。--send 時のみ必要
       "channel_access_token": "...",
       "to": "Uxxxxxxxx..."            // 送信先 userId
     }
   }
 
-実 Sheets / 実 LINE 依存のため決定的テスト対象外（coverage/test に含めない）。
+実データストア / 実 LINE 依存のため決定的テスト対象外（coverage/test に含めない）。
 ruff（lint / format）/ ty（型）だけは通す。
 
 使い方:
@@ -53,8 +51,8 @@ from typing import Any
 
 from application.notification import NotifySummaryUseCase
 from infrastructure.clock import SystemClock
+from infrastructure.duckdb_store import DuckDbAssetRepository, DuckDbConfig
 from infrastructure.notifier import LineConfig, LineNotifier
-from infrastructure.sheets import SheetsAssetRepository, SheetsConfig
 
 _DEFAULT_CONFIG = "notify.local.json"
 _DEFAULT_DAYS = 7
@@ -92,18 +90,11 @@ def _load_config(path: Path) -> dict[str, Any]:
 def build_use_case(config: dict[str, Any], *, send: bool) -> NotifySummaryUseCase:
     """ローカル composition root: ローカル版アダプタを組み立て use case を返す。
 
-    本番 `handler_notify.build_use_case`（SSM → Sheets / LINE）と対をなす。差し替わるのは
+    本番 `handler_notify.build_use_case`（SSM/env → DuckDB / LINE）と対をなす。差し替わるのは
     設定源と Notifier の transport（dry-run では print）だけで、返す
     `NotifySummaryUseCase` と `execute(days)` の実行手順は本番と同一。
     """
-    sheets = config["sheets"]
-    repository = SheetsAssetRepository(
-        SheetsConfig(
-            spreadsheet_id=sheets["spreadsheet_id"],
-            sheet_name=sheets["sheet_name"],
-            credentials=sheets["credentials"],
-        )
-    )
+    repository = DuckDbAssetRepository(DuckDbConfig(location=config["data_location"]))
 
     if send:
         line = config["line"]

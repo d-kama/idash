@@ -7,7 +7,6 @@ dependencies = [
     "idash-domain",
     "idash-common",
     "selenium",
-    "gspread",
     "beautifulsoup4",
     "lxml",
     "duckdb",

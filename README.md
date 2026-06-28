@@ -27,7 +27,7 @@ idash/
 │   ├── domain/          # エンティティ / ドメインサービス / ポート
 │   ├── application/     # ユースケース（orchestration）
 │   ├── schemas/         # Pydantic スキーマ
-│   ├── infrastructure/  # ポートの具象実装（Sheets / 外部サイト / 通知）
+│   ├── infrastructure/  # ポートの具象実装（DuckDB+S3 / 外部サイト / 通知）
 │   └── common/          # 設定 / Parameter Store / ロギング
 ├── apps/
 │   ├── batch/       # データ収集 / サマリ通知 Lambda（uv member）
@@ -105,20 +105,6 @@ pnpm --filter @idash/infra exec cdk bootstrap aws://<ACCOUNT_ID>/ap-northeast-1
 
 # 3) デプロイ
 pnpm --filter @idash/infra exec cdk deploy --require-approval never
-```
-
-#### データ移行（Sheets → Parquet・初回のみ・IaC 外・手動）
-
-データストアを DuckDB + S3 単一 Parquet へ移行する（ADR-0005）。**初回 notify が空にならないよう、
-デプロイ前に過去データを配置する**。順序: ① Sheets を CSV エクスポート → ② Parquet へ変換 →
-③ `DATA_LOCATION`（CDK が出力するデータバケットの `assets.parquet`）へアップロード。
-
-```bash
-# ① Google Sheets を CSV エクスポート（手動。列順 base_date,name,contribution,profit_loss,valuation）
-# ② CSV → Parquet 変換（行数・基準日数を目視検証）
-uv run python scripts/csv_to_parquet.py --in ./assets.csv --out ./assets.parquet
-# ③ データバケットへアップロード（バケット名は CDK のデプロイ出力 / Console > S3 で確認）
-aws s3 cp ./assets.parquet "s3://<DATA_BUCKET>/assets.parquet"
 ```
 
 #### デプロイ後: バッチ失敗通知の Email サブスク（IaC 外・手動）

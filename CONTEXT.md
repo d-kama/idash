@@ -33,8 +33,7 @@ _Avoid_: SourceSite, Fetcher
 
 **AssetRepository**:
 PortfolioAsset を永続化するポート（保存・日付/期間での取得）。具象は DuckDB + S3 上の単一
-Parquet（`DuckDbAssetRepository`、ADR-0005）。`SheetsAssetRepository`（Google Spreadsheet）も
-コードとして残るが配線からは外している。
+Parquet（`DuckDbAssetRepository`、ADR-0005）。
 _Avoid_: PensionRepository
 
 **ErrorPage** / **ErrorPageStore**:
