@@ -69,6 +69,8 @@ def convert(csv_path: Path, parquet_path: Path) -> tuple[int, int]:
     """CSV を Parquet へ変換し、(基準日数, 総行数) を返す。"""
     products_by_date = _parse_rows(csv_path)
 
+    # 出力先ディレクトリを先に作る（未作成だと repo.save 内の COPY が不親切に落ちるため）。
+    parquet_path.parent.mkdir(parents=True, exist_ok=True)
     # 既存の Parquet を消してから作り直す（再実行で重複しないように）。
     parquet_path.unlink(missing_ok=True)
     repo = DuckDbAssetRepository(DuckDbConfig(location=str(parquet_path)))

@@ -42,7 +42,9 @@
   ② `scripts/csv_to_parquet.py` がローカル Parquet へ変換 → ③ ユーザーが `DATA_LOCATION` へアップロード。
   スクリプトはテスト済みの `DuckDbAssetRepository.save()` を再利用し、本番 read 経路とスキーマを一致させる。
 - **デプロイ手順は順序が重要**: 「移行 Parquet を配置 → デプロイ」を守らないと初回の通知が
-  空になる（通知は直近 N 日を集計するため）。
+  空になる（通知は直近 N 日を集計するため）。さらに移行 Parquet 配置前に collect が走ると、
+  `save()` は未存在を検知してその日の行だけで新規 Parquet を作る（過去データ無しで開始）。
+  破壊的な上書きにはならないが過去分が欠けるため、必ず移行配置を先に済ませる。
 - collect は `DATA_LOCATION` バケットへ read/write（glob の LIST 含む）、notify は read のみを実行ロールに付与。
 - `SHEETS_SA_PARAM_ARN` env と grant は両 Lambda から除去（SSM パラメータ実体は手動管理のため AWS 側には残る）。
 - メモリは肥大時に備え `memory_limit` + `temp_directory='/tmp'` を設定しスピル可能にするが、

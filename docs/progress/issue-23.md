@@ -22,10 +22,11 @@ Issue #23 の方針:
 - **規模**: iDeCo 個人データ。平日 1 回 × 商品 5〜10 件 ≒ 年 2,500 行、10 年でも 2.5 万行
   （Parquet 化で数百 KB）。単一ファイルの read-modify-write でも書き込み増幅・メモリは
   実質問題にならない（フル materialize でも数 MB、Lambda は 512/2048 MB）。
-- **単一 Parquet が妥当な理由**: 並行書き込みは `reservedConcurrency=1` + 単一ライターで
-  構造的に発生しない。read も「直近 N 日」を 1 GET で読めるためパーティション分割より
-  S3 リクエスト数で有利。アンチパターンが牙を剥く条件（GB 級・並行ライター・高頻度）が
-  どれも当てはまらない。
+- **単一 Parquet が妥当な理由**: 書き込みは collect だけ（単一ライター）で、その collect 関数は
+  `reservedConcurrency=1` により同時実行が 1 に制限される（＋スケジュールは `retryAttempts=0`）。
+  よって並行書き込みは構造的に発生しない。notify は read-only で並行実行しても Parquet 読み取りは
+  競合しない。read は「直近 N 日」を 1 GET で読めるためパーティション分割より S3 リクエスト数で
+  有利。アンチパターンが牙を剥く条件（GB 級・並行ライター・高頻度）がどれも当てはまらない。
 - **Parquet vs CSV**: S3 はイミュータブルで CSV でも追記は不可（どちらも read-modify-write）。
   差は「型忠実性（Parquet）」vs「可読性（CSV）」のみ。型を保持して再パース不要にできる
   Parquet を採用（Sheets 実装の `int(row[2])` / `date.fromisoformat()` の脆さを解消）。
@@ -93,8 +94,8 @@ Issue #23 の方針:
 
 - **移行・デプロイ運用（手動手順）**: ① ユーザーが Sheets を CSV エクスポートし所定位置へ配置 → ② スクリプトで parquet 変換・目視検証 → ③ ユーザーが `DATA_LOCATION` へ `aws s3 cp` 等でアップロード → ④ デプロイ。この順序を守らないと初回 notify がスカスカ。手順を ADR / README に明記する。
 - **CSV エクスポートのフォーマット差異**: Google Sheets の CSV 出力（区切り・引用符・日付/数値の表記、ヘッダ行有無）が変換スクリプトの前提と食い違うと取り込みが壊れる。スクリプト側で列順・型を明示し、変換後に行数・スキーマを検証する。
-- **DuckDB バージョンの httpfs 互換**: 事前同梱した拡張バイナリと実行時 DuckDB のバージョン整合が必要（`duckdb` ピン留めと Dockerfile の `INSTALL` を同一バージョンで揃える）。
-- **`COPY TO` の同一パス read-while-write**: 既存を TEMP テーブルへ materialize してから書く方針で回避するが、実装時に「読み切ってから書く」順序を要確認。
+- **DuckDB バージョンの httpfs 互換**: 事前同梱した拡張バイナリと実行時 DuckDB のバージョン整合が必要。同一イメージ内で `uv.lock` の `duckdb` を使って `INSTALL`→実行時 `LOAD` するため、ビルド時点では同一バージョンで揃う（`pyproject.toml` の依存と Dockerfile の INSTALL は同じ venv を共有）。lock 更新時はイメージ再ビルドで追従する点に留意。
+- **`COPY TO` の同一パス read-while-write**: ✅ **実装済み・回避済み**。既存を TEMP テーブルへ materialize してから `COPY TO` する（`duckdb_store.py`）。
 - **Lambda の `/tmp` 容量**: 既定 512 MB。本件のデータ規模では十分だがスピル先として一応認識。
 - **SSM `sheets-sa` の今後**: カットオーバー後は collect/notify とも参照しなくなる（移行スクリプトも Sheets/SSM に触れない方針）。パラメータ実体（手動作成）の扱い（残置/削除）は別途判断。
 
