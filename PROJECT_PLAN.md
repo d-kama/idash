@@ -217,17 +217,34 @@ idash/
 
 ### モジュール依存方向
 
-```
-                     domain（entities / domainサービス / ポート=interface）
-                    ▲   ▲                        ▲
-        implements │   │ depends                │ depends
-                   │   │                        │
-      infrastructure   application ──────────────┘
-      （ポートの具象）  （ユースケース: orchestration / schemas にも依存）
-                   ▲        ▲
-        DI で具象注入│        │ ユースケース呼び出し
-                   │        │
-                 apps（batch / bff: 薄いアダプタ）   frontend ←（生成型）← bff
+```mermaid
+classDiagram
+    direction BT
+    class domain["domain（entities / ドメインサービス / ポート=interface）"] {
+        <<package>>
+    }
+    class schemas["schemas（API DTO）"] {
+        <<package>>
+    }
+    class application["application（ユースケース: orchestration）"] {
+        <<package>>
+    }
+    class infrastructure["infrastructure（ポートの具象）"] {
+        <<package>>
+    }
+    class apps["apps（batch / bff: 薄いアダプタ）"] {
+        <<application>>
+    }
+    class frontend["frontend（React SPA）"] {
+        <<application>>
+    }
+
+    infrastructure ..|> domain : implements（ポート具象）
+    application --> domain : depends
+    application --> schemas : depends
+    apps --> application : ユースケース呼び出し
+    apps ..> infrastructure : DI で具象注入
+    frontend ..> apps : 生成型（bff の HTTP 契約）
 ```
 
 - `domain` は他に依存しない（`common` のユーティリティ利用は許容範囲で判断）。
@@ -238,20 +255,49 @@ idash/
 
 ### 実行時データフロー
 
-```
-[EventBridge Scheduler]──cron(JST)──▶[Lambda: データ収集]──収集──▶ 外部DC年金サイト
-                                            │
-                                          write
-                                            ▼
-                              [S3: 単一 Parquet (DuckDB)]
-                                            │
-                                          read（直近N日）
-                                            ▼
-[EventBridge Scheduler]──cron(JST)──▶[Lambda: サマリ通知]──集計──▶ 通知チャネル(未定)
+バッチ系（収集・通知はデータストア経由のみで連携する疎結合）:
 
-                       （可視化系）
-[CloudFront]──/──▶[S3: React]        [Lambda: bff(FastAPI)]──read──▶[S3: 単一 Parquet (DuckDB)]
-     └────/api/*──────────▶[API Gateway]──────┘
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Sch as EventBridge Scheduler
+    participant Col as Lambda: データ収集
+    participant Ext as 外部DC年金サイト
+    participant S3 as S3: 単一 Parquet (DuckDB)
+    participant Ntf as Lambda: サマリ通知
+    participant Ch as 通知チャネル (LINE)
+
+    Sch->>Col: cron(JST) 起動（平日 09:00）
+    Col->>Ext: ログイン・ポートフォリオ収集
+    Ext-->>Col: ProductAsset 群
+    Col->>S3: write（基準日 upsert）
+    Sch->>Ntf: cron(JST) 起動（日曜 09:00）
+    Ntf->>S3: read（直近 N 日）
+    S3-->>Ntf: PortfolioAsset 群
+    Ntf->>Ch: 集計サマリを送信
+```
+
+可視化系（フロントは bff の HTTP 契約経由で Parquet を read）:
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as ブラウザ
+    participant CF as CloudFront
+    participant FE as S3: React SPA
+    participant GW as API Gateway
+    participant Bff as Lambda: bff (FastAPI)
+    participant S3 as S3: 単一 Parquet (DuckDB)
+
+    User->>CF: GET /（SPA 取得）
+    CF->>FE: 静的配信
+    FE-->>User: SPA
+    User->>CF: GET /api/*
+    CF->>GW: ルーティング
+    GW->>Bff: リクエスト
+    Bff->>S3: read（可視化データ）
+    S3-->>Bff: PortfolioAsset 群
+    Bff-->>User: JSON レスポンス
 ```
 
 - 2つのバッチは **データストア（S3 上の単一 Parquet）を介してのみ連携**（直接呼び出さない疎結合）。
@@ -404,8 +450,8 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [x] ~~共有コンポーネントの packages 配置~~ → **`infrastructure`（scraper / sheets / notifier / error_store / clock の具象）に確定**。集計は `domain` のドメインサービス
 
 ### アプリ仕様
-- [ ] BFF が公開するエンドポイント一覧とレスポンススキーマ
-- [ ] フロントの画面構成・可視化内容（指標、グラフ種別、期間軸など）
+- [ ] BFF が公開するエンドポイント一覧とレスポンススキーマ … **可視化要件は確定**（`docs/progress/visualization-spec.md`）。供給するデータ形は「series（基準日×商品の時系列）＋ latest summary（`summarize` 相当）」。エンドポイント分割（単一 `/visualization` or series/summary 分割）と Parquet 直読み vs JSON キャッシュ層（§9）は実装時に確定
+- [x] ~~フロントの画面構成・可視化内容（指標、グラフ種別、期間軸など）~~ → **確定**（`docs/progress/visualization-spec.md`）: 最新ポートフォリオ=ヒーロー＋構成バー（拠出土台＋損益積み上げ）／テーブル=商品毎の日別推移（指標トグル: 評価額・損益・拠出）／グラフ=折れ線（商品毎 multi-series ＋ ポートフォリオ全体は評価額＋拠出ライン）／期間セレクタあり（1M/3M/6M/1Y/全期間）
 - [ ] 認証・認可の要否（アプリ利用者のログイン有無）… **未検討**
 
 ### インフラ・運用
