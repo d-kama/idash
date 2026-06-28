@@ -404,8 +404,8 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [x] ~~共有コンポーネントの packages 配置~~ → **`infrastructure`（scraper / sheets / notifier / error_store / clock の具象）に確定**。集計は `domain` のドメインサービス
 
 ### アプリ仕様
-- [ ] BFF が公開するエンドポイント一覧とレスポンススキーマ
-- [ ] フロントの画面構成・可視化内容（指標、グラフ種別、期間軸など）
+- [ ] BFF が公開するエンドポイント一覧とレスポンススキーマ … **可視化要件は確定**（`docs/progress/visualization-spec.md`）。供給するデータ形は「series（基準日×商品の時系列）＋ latest summary（`summarize` 相当）」。エンドポイント分割（単一 `/visualization` or series/summary 分割）と Parquet 直読み vs JSON キャッシュ層（§9）は実装時に確定
+- [x] ~~フロントの画面構成・可視化内容（指標、グラフ種別、期間軸など）~~ → **確定**（`docs/progress/visualization-spec.md`）: 最新ポートフォリオ=ヒーロー＋構成バー（拠出土台＋損益積み上げ）／テーブル=商品毎の日別推移（指標トグル: 評価額・損益・拠出）／グラフ=折れ線（商品毎 multi-series ＋ ポートフォリオ全体は評価額＋拠出ライン）／期間セレクタあり（1M/3M/6M/1Y/全期間）
 - [ ] 認証・認可の要否（アプリ利用者のログイン有無）… **未検討**
 
 ### インフラ・運用
