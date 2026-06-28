@@ -2,7 +2,7 @@
 
 env → SSM(2本: sheets-sa / notify-line) → config → 具象構築 → NotifySummaryUseCase.execute
 の結線を、use_case を fake に差し替えて粗粒度で確認する。併せて、SSM JSON から具象
-（SheetsAssetRepository / LineNotifier）を組み立てる実配線（build_use_case）も moto 下で確認する。
+（DuckDbAssetRepository / LineNotifier）を組み立てる実配線（build_use_case）も moto 下で確認する。
 """
 
 import json
@@ -15,14 +15,8 @@ from application.notification import NotifySummaryUseCase
 from batch import handler_notify
 from domain.notification import Notification
 
-SHEETS_PARAM = "/idash/dev/sheets-sa"
 NOTIFY_PARAM = "/idash/dev/notify-line"
 
-SHEETS_JSON = {
-    "credentials": {"type": "service_account", "client_email": "x@y.iam"},
-    "spreadsheet_id": "sheet-key-123",
-    "sheet_name": "assets",
-}
 NOTIFY_JSON = {
     "channel_access_token": "token-abc",
     "to": "Uxxxxxxxx",
@@ -30,9 +24,9 @@ NOTIFY_JSON = {
 
 ENV = {
     "ENV_NAME": "dev",
-    "SHEETS_SA_PARAM_ARN": SHEETS_PARAM,
     "NOTIFY_LINE_PARAM_ARN": NOTIFY_PARAM,
     "NOTIFY_DAYS": "7",
+    "DATA_LOCATION": "s3://idash-dev-data/assets.parquet",
 }
 
 NOTIFICATION = Notification(subject="iDeCo 運用サマリ", body="本文")
@@ -40,7 +34,6 @@ NOTIFICATION = Notification(subject="iDeCo 運用サマリ", body="本文")
 
 def _put_params() -> None:
     client = boto3.client("ssm", region_name="ap-northeast-1")
-    client.put_parameter(Name=SHEETS_PARAM, Value=json.dumps(SHEETS_JSON), Type="SecureString")
     client.put_parameter(Name=NOTIFY_PARAM, Value=json.dumps(NOTIFY_JSON), Type="SecureString")
 
 
@@ -63,15 +56,13 @@ def test_handler_uses_env_days_and_returns_ok(monkeypatch) -> None:
     fake = _FakeUseCase(NOTIFICATION)
     captured: dict[str, object] = {}
 
-    def factory(settings, sheets_cfg, line_cfg):
-        captured["sheets_cfg"] = sheets_cfg
+    def factory(settings, line_cfg):
         captured["line_cfg"] = line_cfg
         return fake
 
     result = handler_notify.handler({}, None, use_case_factory=factory)
 
     # SSM 復号 JSON が wiring に渡っている。
-    assert captured["sheets_cfg"] == SHEETS_JSON
     assert captured["line_cfg"] == NOTIFY_JSON
     # event に days 無し → env 既定7で execute。
     assert fake.calls == [7]
@@ -142,6 +133,6 @@ def test_build_use_case_wires_concrete_adapters(monkeypatch) -> None:
 
     settings = handler_notify.NotifySettings.from_env()
 
-    use_case = handler_notify.build_use_case(settings, SHEETS_JSON, NOTIFY_JSON)
+    use_case = handler_notify.build_use_case(settings, NOTIFY_JSON)
 
     assert isinstance(use_case, NotifySummaryUseCase)

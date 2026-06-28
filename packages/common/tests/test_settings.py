@@ -6,16 +6,16 @@ from common.settings import CollectSettings, NotifySettings
 
 ENV = {
     "ENV_NAME": "dev",
-    "SHEETS_SA_PARAM_ARN": "/idash/dev/sheets-sa",
     "SOURCE_LOGIN_PARAM_ARN": "/idash/dev/source-login",
     "ERROR_PAGE_BUCKET": "idash-dev-error-pages",
+    "DATA_LOCATION": "s3://idash-dev-data/assets.parquet",
 }
 
 NOTIFY_ENV = {
     "ENV_NAME": "dev",
-    "SHEETS_SA_PARAM_ARN": "/idash/dev/sheets-sa",
     "NOTIFY_LINE_PARAM_ARN": "/idash/dev/notify-line",
     "NOTIFY_DAYS": "14",
+    "DATA_LOCATION": "s3://idash-dev-data/assets.parquet",
 }
 
 
@@ -23,9 +23,9 @@ def test_from_env_reads_all_values() -> None:
     settings = CollectSettings.from_env(ENV)
 
     assert settings.env_name == "dev"
-    assert settings.sheets_sa_param == "/idash/dev/sheets-sa"
     assert settings.source_login_param == "/idash/dev/source-login"
     assert settings.error_page_bucket == "idash-dev-error-pages"
+    assert settings.data_location == "s3://idash-dev-data/assets.parquet"
 
 
 def test_from_env_missing_required_raises() -> None:
@@ -39,9 +39,9 @@ def test_notify_from_env_reads_all_values_and_parses_days() -> None:
     settings = NotifySettings.from_env(NOTIFY_ENV)
 
     assert settings.env_name == "dev"
-    assert settings.sheets_sa_param == "/idash/dev/sheets-sa"
     assert settings.notify_line_param == "/idash/dev/notify-line"
     assert settings.notify_days == 14  # int 解釈
+    assert settings.data_location == "s3://idash-dev-data/assets.parquet"
 
 
 def test_notify_from_env_defaults_days_to_7_when_absent() -> None:

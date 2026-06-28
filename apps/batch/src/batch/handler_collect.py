@@ -1,8 +1,9 @@
 """データ収集バッチの Lambda ハンドラ（composition root）。
 
 環境変数と SSM SecureString(2本) から設定を読み、具象アダプタ
-（SeleniumScraper / SheetsAssetRepository / S3ErrorPageStore / SystemClock）を構築して
+（SeleniumScraper / DuckDbAssetRepository / S3ErrorPageStore / SystemClock）を構築して
 CollectionUseCase に DI し、収集を実行する。具象は SSM を知らない（ここで注入する）。
+データストアは DuckDB + S3 単一 Parquet（`DATA_LOCATION`、実行ロール認証）。
 
 例外は捕捉せず再送出して Lambda を失敗扱いにする（収集失敗はリトライ/通知に委ねる）。
 """
@@ -20,9 +21,9 @@ from common.logging import get_logger
 from common.settings import CollectSettings
 from domain.collection import Credentials
 from infrastructure.clock import SystemClock
+from infrastructure.duckdb_store import DuckDbAssetRepository, DuckDbConfig
 from infrastructure.error_store import S3ErrorPageStore
 from infrastructure.scraper import ScraperConfig, SeleniumScraper
-from infrastructure.sheets import SheetsAssetRepository, SheetsConfig
 
 _logger = get_logger("idash.collect")
 
@@ -30,9 +31,14 @@ _logger = get_logger("idash.collect")
 _DEFAULT_CHROME_BINARY = "/opt/chrome/chrome"
 _DEFAULT_CHROME_DRIVER = "/opt/chromedriver/chromedriver"
 
-# (settings, source, sheets_cfg) -> (use_case, url, credentials)
+# DuckDB の拡張同梱先（Dockerfile の事前 INSTALL 先）と肥大時スピル先。
+_DUCKDB_EXTENSION_DIR = "/opt/duckdb-extensions"
+_DUCKDB_TEMP_DIR = "/tmp"  # noqa: S108 -- Lambda の書き込み可能領域（スピル用）
+_DUCKDB_MEMORY_LIMIT = "512MB"  # データは微小。スピル併用で OOM を避ける保険値
+
+# (settings, source) -> (use_case, url, credentials)
 UseCaseFactory = Callable[
-    [CollectSettings, dict[str, Any], dict[str, Any]],
+    [CollectSettings, dict[str, Any]],
     "tuple[CollectionInputBoundary, str, Credentials]",
 ]
 
@@ -40,9 +46,8 @@ UseCaseFactory = Callable[
 def build_use_case(
     settings: CollectSettings,
     source: dict[str, Any],
-    sheets_cfg: dict[str, Any],
 ) -> tuple[CollectionUseCase, str, Credentials]:
-    """SSM 復号 JSON から具象を組み立て、CollectionUseCase と実行引数を返す。"""
+    """SSM 復号 JSON / env から具象を組み立て、CollectionUseCase と実行引数を返す。"""
     scraper = SeleniumScraper(
         ScraperConfig(
             user_agent=source["user_agent"],
@@ -50,11 +55,12 @@ def build_use_case(
             chrome_driver_path=os.environ.get("CHROME_DRIVER_PATH", _DEFAULT_CHROME_DRIVER),
         )
     )
-    repository = SheetsAssetRepository(
-        SheetsConfig(
-            spreadsheet_id=sheets_cfg["spreadsheet_id"],
-            sheet_name=sheets_cfg["sheet_name"],
-            credentials=sheets_cfg["credentials"],
+    repository = DuckDbAssetRepository(
+        DuckDbConfig(
+            location=settings.data_location,
+            memory_limit=_DUCKDB_MEMORY_LIMIT,
+            temp_directory=_DUCKDB_TEMP_DIR,
+            extension_directory=_DUCKDB_EXTENSION_DIR,
         )
     )
     error_store = S3ErrorPageStore(settings.error_page_bucket)
@@ -77,9 +83,8 @@ def handler(
     """EventBridge から起動される収集エントリポイント。"""
     settings = CollectSettings.from_env()
     source = ssm.get_secure_json(settings.source_login_param)
-    sheets_cfg = ssm.get_secure_json(settings.sheets_sa_param)
 
-    use_case, url, credentials = use_case_factory(settings, source, sheets_cfg)
+    use_case, url, credentials = use_case_factory(settings, source)
     asset = use_case.execute(url, credentials)
 
     result = {
