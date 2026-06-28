@@ -66,7 +66,7 @@ infrastructure        application（+ schemas に依存）
 
 - **`domain` は何にも依存しない純粋層**。pydantic すら入れない（値オブジェクトは stdlib `@dataclass(frozen=True)`、ポートは `Protocol`）。
 - **`application`** は `domain` と `schemas` のみに依存。フレームワーク（FastAPI / Mangum / boto3 / Lambda）や具象実装は import 禁止 — これを**パッケージ境界で物理的に強制**するために専用パッケージ化している。
-- **`infrastructure`** が `domain` のポートを実装する具象（Google Sheets / 外部サイトスクレイピング / 通知）。`domain` + `common` に依存。
+- **`infrastructure`** が `domain` のポートを実装する具象（DuckDB+S3 Parquet データストア / 外部サイトスクレイピング / 通知）。`domain` + `common` に依存。
 - **`apps/{batch,bff}`** は具象を `application` のユースケースへ DI して呼ぶだけの薄いアダプタ。**apps 同士は依存させない**。
 - **`common`** は config / Parameter Store / logging（boto3 に依存）。
 - frontend は bff の HTTP 契約経由でのみ接続。型は **Pydantic → OpenAPI → TS 型** の一方向伝播（single source of truth は Pydantic スキーマ。生成タスクは後続フェーズで有効化）。
@@ -75,14 +75,14 @@ infrastructure        application（+ schemas に依存）
 
 ### 実行時データフロー
 
-2つのバッチ（データ収集 / サマリ通知）は **Google Spreadsheet を介してのみ連携**する疎結合（互いを直接呼ばない）。収集は外部 DC 年金サイトをスクレイピングして Sheets へ write、通知は Sheets から直近 N 日を read → 集計 → 通知。bff（FastAPI + Mangum）は Sheets を read して可視化データを返す。スケジュールは EventBridge Scheduler（JST 指定可）。
+2つのバッチ（データ収集 / サマリ通知）は **データストア（DuckDB + S3 単一 Parquet、ADR-0005）を介してのみ連携**する疎結合（互いを直接呼ばない）。収集は外部 DC 年金サイトをスクレイピングして Parquet へ write、通知は Parquet から直近 N 日を read → 集計 → 通知。bff（FastAPI + Mangum）は Parquet を read して可視化データを返す。S3 へのアクセスは実行ロール認証（静的キーなし）。スケジュールは EventBridge Scheduler（JST 指定可）。
 
 ### infra（AWS CDK / TypeScript）
 
 `infra/` は CDK。`IdashBatchStack` に収集（collect）と通知（notify）の2 Lambda。**Lambda はコンテナイメージ**（`DockerImageFunction`、版ピン chrome を同梱した `apps/batch/Dockerfile` を build context = リポジトリルートでビルド）で、collect / notify は**同一イメージを `cmd` 違いで共有**する。失敗時のエラーページ証跡を保存する S3（`ErrorPageBucket`）を併設（collect のみ書き込み）。リージョンは `ap-northeast-1`、収集は平日のみ（Mon–Fri）JST 09:00、通知は週次・日曜 JST 09:00。
 
 - スタックのエントリは `infra/bin/app.ts`、`--context env=<name>`（既定 `dev`）でスタック名・SSM パラメータ名を切替。
-- **SSM SecureString（`/idash/<env>/sheets-sa`・`/idash/<env>/source-login`）は CDK では作成しない**（CloudFormation が SecureString 非対応）。デプロイ前に AWS 側で手動作成し、名前でインポートする。
+- **SSM SecureString（`/idash/<env>/source-login`・`/idash/<env>/notify-line`）は CDK では作成しない**（CloudFormation が SecureString 非対応）。デプロイ前に AWS 側で手動作成し、名前でインポートする。
 - 変更時は `pnpm --filter @idash/infra test`（Vitest スナップショット）が壊れる。意図した差分なら `run test:update` で更新する。
 - **物理名は付けず CDK 自動命名に寄せる**（Lambda `functionName` / Logs `logGroupName` 等を固定しない）。固定名のリソースが置換を伴う変更（例: Lambda の PackageType を Zip⇄Image）を受けると新旧で名前衝突し `custom-named resource requires replacing` で deploy が詰まるため。参照はオブジェクト/ARN 経由で配線する。例外は永続データを持ち名前安定性が要るリソース（S3 等）のみ。
 
