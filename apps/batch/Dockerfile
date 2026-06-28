@@ -90,7 +90,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.10.0 /uv /bin/uv
 
 # uv workspace を解決する。ルート pyproject.toml / uv.lock とワークスペースメンバー
 # （packages/* + apps/batch）を COPY し、batch のみ（--no-dev / --frozen）で同期する。
-# batch → infrastructure 依存で selenium / gspread / bs4 / lxml / boto3 が入る。
+# batch → infrastructure 依存で selenium / bs4 / lxml / duckdb / boto3 が入る。
 #
 # --no-editable: workspace パッケージ（batch / domain / application …）を editable(.pth)
 # ではなく実体ファイルとして site-packages へ入れる。これがないと Lambda で

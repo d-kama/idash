@@ -1,7 +1,7 @@
 """handler_notify（composition root）の DI 結線を検証する。
 
-env → SSM(2本: sheets-sa / notify-line) → config → 具象構築 → NotifySummaryUseCase.execute
-の結線を、use_case を fake に差し替えて粗粒度で確認する。併せて、SSM JSON から具象
+env（DATA_LOCATION）→ SSM(notify-line) → config → 具象構築 → NotifySummaryUseCase.execute
+の結線を、use_case を fake に差し替えて粗粒度で確認する。併せて、env / SSM JSON から具象
 （DuckDbAssetRepository / LineNotifier）を組み立てる実配線（build_use_case）も moto 下で確認する。
 """
 
