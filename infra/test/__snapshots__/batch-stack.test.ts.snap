@@ -47,7 +47,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:6010a7c030446cc4759a230a258137c4200b252d407998659a57a12ef1211b8b",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:5eac18d11e31e2f0dcabc0491ca7475692eab1228a43981d461be4d80a946f18",
           },
         },
         "Environment": {
@@ -459,7 +459,7 @@ exports[`IdashBatchStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:6010a7c030446cc4759a230a258137c4200b252d407998659a57a12ef1211b8b",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:5eac18d11e31e2f0dcabc0491ca7475692eab1228a43981d461be4d80a946f18",
           },
         },
         "Environment": {
