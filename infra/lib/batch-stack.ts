@@ -34,17 +34,11 @@ export class IdashBatchStack extends Stack {
     super(scope, id, props);
     const { envName } = props;
 
-    const sheetsSaParamName = `/idash/${envName}/sheets-sa`;
     const sourceLoginParamName = `/idash/${envName}/source-login`;
     const notifyLineParamName = `/idash/${envName}/notify-line`;
 
     // SSM SecureString は CDK では作成しない（CloudFormation が SecureString を作成不可）。
     // 事前作成済みパラメータを名前でインポートする。
-    const sheetsSaParam = StringParameter.fromSecureStringParameterAttributes(
-      this,
-      'SheetsSaForCollect',
-      { parameterName: sheetsSaParamName },
-    );
     const sourceLoginParam = StringParameter.fromSecureStringParameterAttributes(
       this,
       'SourceLogin',
@@ -66,6 +60,25 @@ export class IdashBatchStack extends Stack {
       lifecycleRules: [{ expiration: Duration.days(30) }],
       removalPolicy: RemovalPolicy.DESTROY,
     });
+
+    // 資産履歴の永続データストア（DuckDbAssetRepository が読み書きする単一 Parquet）。
+    // - 公開全面ブロック / enforceSSL。
+    // - versioning 有効: collect の read-modify-write（単一ファイル上書き）の欠損・誤書きを
+    //   旧バージョンへ巻き戻せる保険。noncurrent は 90 日で失効しコストを抑える。
+    // - **RemovalPolicy.RETAIN**: 再取得不可能な唯一のデータなので、スタック削除でも残す
+    //   （証跡用 ErrorPageBucket=DESTROY とは扱いを変える永続リソース）。物理名は付けない
+    //   （RETAIN で誤削除は防げる。参照は bucketName/ARN 経由で配線）。
+    const dataBucket = new Bucket(this, 'DataBucket', {
+      blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
+      enforceSSL: true,
+      versioned: true,
+      lifecycleRules: [{ noncurrentVersionExpiration: Duration.days(90) }],
+      removalPolicy: RemovalPolicy.RETAIN,
+    });
+
+    // データストアの単一 Parquet の S3 URI（handler の DATA_LOCATION）。分割しない方針のため
+    // キーは固定 1 ファイル。`s3://` 接頭辞で DuckDb 側が credential_chain 認証を有効化する。
+    const dataLocation = `s3://${dataBucket.bucketName}/assets.parquet`;
 
     // CloudWatch Logs を明示作成（保持 7 日 + スタック削除時に破棄）。
     // logGroupName は付けない（CDK 自動命名）。永続化が要るリソース（S3 等）以外は
@@ -103,18 +116,21 @@ export class IdashBatchStack extends Stack {
       logGroup: collectLogGroup,
       environment: {
         ENV_NAME: envName,
-        SHEETS_SA_PARAM_ARN: sheetsSaParam.parameterArn,
         SOURCE_LOGIN_PARAM_ARN: sourceLoginParam.parameterArn,
         ERROR_PAGE_BUCKET: errorPageBucket.bucketName,
+        DATA_LOCATION: dataLocation,
       },
     });
 
     // SSM 読取権限（aws/ssm マネージドキーのため kms:Decrypt の明示付与は不要）。
-    sheetsSaParam.grantRead(collectFn);
     sourceLoginParam.grantRead(collectFn);
 
     // エラーページ保存は PutObject のみ（S3ErrorPageStore.save）→ grantWrite で十分。
     errorPageBucket.grantWrite(collectFn);
+
+    // データストアは read-modify-write（既存 read → 全件上書き）のため read/write 両方。
+    // glob の LIST も grantReadWrite に含まれる。
+    dataBucket.grantReadWrite(collectFn);
 
     // 失敗検知アラーム（collect）。例外・timeout・OOM・起動失敗を一律 Lambda `Errors` で拾う。
     this.addErrorsAlarm('CollectErrorsAlarm', collectFn, alertTopic);
@@ -133,7 +149,7 @@ export class IdashBatchStack extends Stack {
     });
 
     // サマリ通知 Lambda（収集と同一イメージを cmd 違いで再利用）。
-    // notify は Sheets read + LINE 通知のみで軽量（chrome 起動なし）。memory 512 / timeout 1分。
+    // notify はデータストア read + LINE 通知のみで軽量（chrome 起動なし）。memory 512 / timeout 1分。
     const notifyLogGroup = new LogGroup(this, 'NotifyFnLogGroup', {
       retention: RetentionDays.ONE_WEEK,
       removalPolicy: RemovalPolicy.DESTROY,
@@ -152,16 +168,18 @@ export class IdashBatchStack extends Stack {
       logGroup: notifyLogGroup,
       environment: {
         ENV_NAME: envName,
-        SHEETS_SA_PARAM_ARN: sheetsSaParam.parameterArn,
         NOTIFY_LINE_PARAM_ARN: notifyLineParam.parameterArn,
         NOTIFY_DAYS: '7',
+        DATA_LOCATION: dataLocation,
       },
     });
 
-    // SSM 読取権限（sheets-sa は read 用に再利用 / notify-line は LINE トークン）。
+    // SSM 読取権限（notify-line は LINE トークン）。
     // エラーページ S3 は notify では使わないため付与しない。
-    sheetsSaParam.grantRead(notifyFn);
     notifyLineParam.grantRead(notifyFn);
+
+    // データストアは read のみ（直近 N 日の集計）。glob の LIST も grantRead に含まれる。
+    dataBucket.grantRead(notifyFn);
 
     // 失敗検知アラーム（notify）。collect と別アラームにし、どちらが落ちたか即わかるようにする。
     this.addErrorsAlarm('NotifyErrorsAlarm', notifyFn, alertTopic);

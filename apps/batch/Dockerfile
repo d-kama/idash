@@ -104,6 +104,12 @@ COPY packages/ packages/
 COPY apps/batch/ apps/batch/
 RUN uv sync --package idash-batch --no-dev --frozen --no-editable
 
+# DuckDB の httpfs/aws 拡張を固定ディレクトリへ事前 INSTALL する（S3 アクセスに必須）。
+# 実行時は LOAD のみ（extensions.duckdb.org への外部 DL を排除し、コールドスタート遅延・
+# ネット依存・障害点を無くす）。DuckDbAssetRepository は handler 経由で同一の
+# extension_directory を受け取り、HOME 差異に依存せず LOAD を解決する。
+RUN /var/task/.venv/bin/python -c "import duckdb; con = duckdb.connect(); con.execute(\"SET extension_directory='/opt/duckdb-extensions'\"); con.execute('INSTALL httpfs'); con.execute('INSTALL aws')"
+
 # 同期した venv を Lambda ランタイムが import できるよう PATH / PYTHONPATH に通す。
 ENV PATH="/var/task/.venv/bin:${PATH}"
 ENV PYTHONPATH="/var/task/.venv/lib/python3.13/site-packages"

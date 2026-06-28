@@ -28,9 +28,9 @@ class CollectSettings:
     """
 
     env_name: str
-    sheets_sa_param: str
     source_login_param: str
     error_page_bucket: str
+    data_location: str
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> CollectSettings:
@@ -38,9 +38,9 @@ class CollectSettings:
         env = os.environ if env is None else env
         return cls(
             env_name=_require(env, "ENV_NAME"),
-            sheets_sa_param=_require(env, "SHEETS_SA_PARAM_ARN"),
             source_login_param=_require(env, "SOURCE_LOGIN_PARAM_ARN"),
             error_page_bucket=_require(env, "ERROR_PAGE_BUCKET"),
+            data_location=_require(env, "DATA_LOCATION"),
         )
 
 
@@ -48,15 +48,15 @@ class CollectSettings:
 class NotifySettings:
     """サマリ通知バッチの実行に必要な環境変数。
 
-    Sheets read（`sheets-sa` を再利用）と LINE 通知（`notify-line`）のみを要し、
-    収集固有の `source-login` / `error_page_bucket` は持たない。`notify_days` は
-    集計対象の日数で、env 欠落時は 7 を既定とする（event の `days` で上書き可）。
+    データストア read（`data_location` の単一 Parquet）と LINE 通知（`notify-line`）の
+    みを要し、収集固有の `source-login` / `error_page_bucket` は持たない。`notify_days`
+    は集計対象の日数で、env 欠落時は 7 を既定とする（event の `days` で上書き可）。
     """
 
     env_name: str
-    sheets_sa_param: str
     notify_line_param: str
     notify_days: int
+    data_location: str
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> NotifySettings:
@@ -65,7 +65,7 @@ class NotifySettings:
         notify_days = env.get("NOTIFY_DAYS")
         return cls(
             env_name=_require(env, "ENV_NAME"),
-            sheets_sa_param=_require(env, "SHEETS_SA_PARAM_ARN"),
             notify_line_param=_require(env, "NOTIFY_LINE_PARAM_ARN"),
             notify_days=int(notify_days) if notify_days is not None else 7,
+            data_location=_require(env, "DATA_LOCATION"),
         )

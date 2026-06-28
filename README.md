@@ -92,8 +92,9 @@ pnpm --filter @idash/infra test
 
 ### デプロイ手順
 
-> SSM SecureString（`/idash/<env>/sheets-sa`・`/idash/<env>/source-login`）は
+> SSM SecureString（`/idash/<env>/source-login`・`/idash/<env>/notify-line`）は
 > CDK では作成しない。デプロイ前に AWS コンソール / CLI で事前作成しておくこと。
+> （データストアは DuckDB + S3 Parquet へ移行済み＝ADR-0005。`sheets-sa` は不要になった。）
 
 ```bash
 # 1) 再認証（有効な AWS 認証情報を用意）
@@ -104,6 +105,20 @@ pnpm --filter @idash/infra exec cdk bootstrap aws://<ACCOUNT_ID>/ap-northeast-1
 
 # 3) デプロイ
 pnpm --filter @idash/infra exec cdk deploy --require-approval never
+```
+
+#### データ移行（Sheets → Parquet・初回のみ・IaC 外・手動）
+
+データストアを DuckDB + S3 単一 Parquet へ移行する（ADR-0005）。**初回 notify が空にならないよう、
+デプロイ前に過去データを配置する**。順序: ① Sheets を CSV エクスポート → ② Parquet へ変換 →
+③ `DATA_LOCATION`（CDK が出力するデータバケットの `assets.parquet`）へアップロード。
+
+```bash
+# ① Google Sheets を CSV エクスポート（手動。列順 base_date,name,contribution,profit_loss,valuation）
+# ② CSV → Parquet 変換（行数・基準日数を目視検証）
+uv run python scripts/csv_to_parquet.py --in ./assets.csv --out ./assets.parquet
+# ③ データバケットへアップロード（バケット名は CDK のデプロイ出力 / Console > S3 で確認）
+aws s3 cp ./assets.parquet "s3://<DATA_BUCKET>/assets.parquet"
 ```
 
 #### デプロイ後: バッチ失敗通知の Email サブスク（IaC 外・手動）

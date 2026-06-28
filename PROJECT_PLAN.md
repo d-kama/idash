@@ -13,7 +13,7 @@
 **目的**: iDeCo（個人型確定拠出年金）の運用状況の把握・管理を効率的にする。データを定期収集して蓄積し、Web 上で可視化＋サマリ通知することで、運用状況を一望できる状態を作る。個人利用・学習用を兼ねる。
 
 - **バッチ**: 以下の2機能で構成
-  - **データ収集バッチ**: 外部の確定拠出年金サイトへ接続してデータを収集し、リポジトリ（Google Spreadsheet）へ書き込む
+  - **データ収集バッチ**: 外部の確定拠出年金サイトへ接続してデータを収集し、リポジトリ（DuckDB + S3 Parquet）へ書き込む
   - **サマリ通知バッチ**: リポジトリから直近 N 日の収集データを取得・集計し、通知する
 - **可視化 Web アプリ**: フロントエンド（React）＋ BFF（FastAPI）で構成
 - **モノレポ**で管理（Python と TypeScript が混在する polyglot 構成）
@@ -59,7 +59,7 @@
 | BFF | Python / FastAPI（+ Mangum） | API Gateway (HTTP API) + Lambda |
 | フロントエンド | React / Vite / TypeScript | S3 + CloudFront |
 | IaC | AWS CDK（**TypeScript**） | - |
-| データストア | Google Spreadsheet | - |
+| データストア | DuckDB + 単一 Parquet（ADR-0005） | S3 |
 | 認証情報管理 | - | SSM Parameter Store（SecureString / 標準パラメータ） |
 
 ### 2.3 主要な設計判断
@@ -84,12 +84,12 @@
 - **パッケージング方針**: `apps/batch` は**1アプリ（1コンテナイメージ）**のまま、**ハンドラを2つ**用意（`handler_collect.py` / `handler_notify.py`）。CDK 側で**同一イメージから2つの Lambda 関数**を作り、`cmd`（ハンドラ）と**スケジュールを個別指定**する。
   - 利点: 共有ライブラリ・ビルド・依存解決を二重化せず、関数ごとに cron・メモリ・タイムアウト・権限を分離できる。
 - **データ収集バッチ**
-  - 外部の確定拠出年金サイトへ接続 → データ収集 → リポジトリ（Sheets）へ**書き込み**
+  - 外部の確定拠出年金サイトへ接続 → データ収集 → リポジトリ（DuckDB + S3 Parquet）へ**書き込み**
   - 外部サイトはログイン必須・公開 API 非提供の可能性が高く、**スクレイピング/ヘッドレスブラウザ**が必要になる想定（**TODO**）。コンテナ Lambda なので重い依存（例: Playwright）も同梱しやすい。
-  - 外部サイトのログイン認証情報は **Parameter Store の SecureString** に保管（Sheets サービスアカウントとは別パラメータ）。
+  - 外部サイトのログイン認証情報は **Parameter Store の SecureString** に保管（データストアの認証は実行ロール／credential_chain で別管理）。
 - **サマリ通知バッチ**
   - リポジトリから**直近 N 日**の収集データを**読み取り** → **集計** → **通知**
-  - データ収集バッチには依存せず、リポジトリ（Sheets）を介してのみ連携（疎結合）。
+  - データ収集バッチには依存せず、リポジトリ（DuckDB + S3 Parquet）を介してのみ連携（疎結合）。
   - 通知チャネル（メール / Slack / LINE 等）は**未決定（TODO）**。
   - `N`（集計対象日数）はパラメータ化し、環境変数 or イベントペイロードで渡す（**TODO: 既定値・指定方法**）。
 - **コンポーネント配置（確定。詳細はセクション 2.3.2 参照）**
@@ -123,6 +123,9 @@
 `infrastructure` は Sheets だけでなく外部サイトクライアント・通知の具象も内包するため、実態は「外部システムとのアダプタ全般＝**インフラ層**」。Phase 0 で `repository` から `infrastructure` へ改称済み。当面は広めに使い、肥大化したらサブモジュールへ分割する（**TODO: 分割要否は実装後に判断**）。
 
 ### 2.4 Google Spreadsheet 利用方針
+
+> **注記（ADR-0005 で置換）**: データストアは DuckDB + S3 単一 Parquet へ移行済み。本節は Sheets 時代の
+> 方針として歴史的に残す。現行方針は ADR-0005 を参照（書き込みは収集のみ・認証は実行ロール／credential_chain）。
 
 - **書き込みは batch（データ収集）のみに限定**（Sheets はトランザクション非対応のため並行書き込みを避ける）
 - 認証用サービスアカウント JSON は**バンドルせず Parameter Store の SecureString** に保管。Lambda のモジュールスコープでキャッシュ取得（コールドスタート時のみ）
@@ -241,18 +244,18 @@ idash/
                                             │
                                           write
                                             ▼
-                                  [Google Spreadsheet]
+                              [S3: 単一 Parquet (DuckDB)]
                                             │
                                           read（直近N日）
                                             ▼
 [EventBridge Scheduler]──cron(JST)──▶[Lambda: サマリ通知]──集計──▶ 通知チャネル(未定)
 
                        （可視化系）
-[CloudFront]──/──▶[S3: React]        [Lambda: bff(FastAPI)]──read──▶[Google Spreadsheet]
+[CloudFront]──/──▶[S3: React]        [Lambda: bff(FastAPI)]──read──▶[S3: 単一 Parquet (DuckDB)]
      └────/api/*──────────▶[API Gateway]──────┘
 ```
 
-- 2つのバッチは **Sheets を介してのみ連携**（直接呼び出さない疎結合）。
+- 2つのバッチは **データストア（S3 上の単一 Parquet）を介してのみ連携**（直接呼び出さない疎結合）。
 - スケジュールは機能ごとに独立（収集と通知で頻度・時刻が異なる想定）。
 
 ---
@@ -425,6 +428,10 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 ---
 
 ## 9. 要検討事項: Sheets 直読み vs 配信用キャッシュ
+
+> **注記（ADR-0005 で前提変更）**: データストアは DuckDB + S3 Parquet へ移行済み。Sheets API の
+> レート制限・レイテンシ懸念は解消され、BFF は S3 Parquet を DuckDB で直読みできる。本節は Sheets
+> 時代の検討として残すが、BFF（Phase 5）の配信方式は Parquet 直読みを起点に再検討する。
 
 Google Sheets API はレート制限・レイテンシ（数百ms〜秒）があり、BFF が毎リクエストで直接読むとスロットリングと体感遅延を招く懸念がある。以下の選択肢から決定する（**TODO**）。
 

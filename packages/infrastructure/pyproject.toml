@@ -10,6 +10,7 @@ dependencies = [
     "gspread",
     "beautifulsoup4",
     "lxml",
+    "duckdb",
 ]
 
 [build-system]

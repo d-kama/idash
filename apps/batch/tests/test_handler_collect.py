@@ -17,7 +17,6 @@ from domain.asset import Money, PortfolioAsset, ProductAsset
 from domain.collection import Credentials
 
 SOURCE_PARAM = "/idash/dev/source-login"
-SHEETS_PARAM = "/idash/dev/sheets-sa"
 
 SOURCE_JSON = {
     "user_id": "user01",
@@ -26,17 +25,12 @@ SOURCE_JSON = {
     "start_url": "https://dc.example/login",
     "user_agent": "idash-bot",
 }
-SHEETS_JSON = {
-    "credentials": {"type": "service_account", "client_email": "x@y.iam"},
-    "spreadsheet_id": "sheet-key-123",
-    "sheet_name": "assets",
-}
 
 ENV = {
     "ENV_NAME": "dev",
     "SOURCE_LOGIN_PARAM_ARN": SOURCE_PARAM,
-    "SHEETS_SA_PARAM_ARN": SHEETS_PARAM,
     "ERROR_PAGE_BUCKET": "idash-dev-error-pages",
+    "DATA_LOCATION": "s3://idash-dev-data/assets.parquet",
 }
 
 ASSET = PortfolioAsset(
@@ -55,7 +49,6 @@ ASSET = PortfolioAsset(
 def _put_params() -> None:
     client = boto3.client("ssm", region_name="ap-northeast-1")
     client.put_parameter(Name=SOURCE_PARAM, Value=json.dumps(SOURCE_JSON), Type="SecureString")
-    client.put_parameter(Name=SHEETS_PARAM, Value=json.dumps(SHEETS_JSON), Type="SecureString")
 
 
 class _FakeUseCase:
@@ -77,9 +70,8 @@ def test_handler_reads_config_and_runs_use_case(monkeypatch) -> None:
     fake = _FakeUseCase(ASSET)
     captured: dict[str, object] = {}
 
-    def factory(settings, source, sheets_cfg):
+    def factory(settings, source):
         captured["source"] = source
-        captured["sheets_cfg"] = sheets_cfg
         return (
             fake,
             source["start_url"],
@@ -92,7 +84,6 @@ def test_handler_reads_config_and_runs_use_case(monkeypatch) -> None:
 
     # SSM 復号 JSON が wiring に渡っている
     assert captured["source"] == SOURCE_JSON
-    assert captured["sheets_cfg"] == SHEETS_JSON
     # execute が start_url で 1 回呼ばれている
     assert len(fake.calls) == 1
     assert fake.calls[0][0] == "https://dc.example/login"
@@ -108,9 +99,8 @@ def test_build_use_case_wires_credentials_and_url(monkeypatch) -> None:
 
     settings = handler_collect.CollectSettings.from_env()
     source = SOURCE_JSON
-    sheets_cfg = SHEETS_JSON
 
-    use_case, url, credentials = handler_collect.build_use_case(settings, source, sheets_cfg)
+    use_case, url, credentials = handler_collect.build_use_case(settings, source)
 
     assert isinstance(use_case, CollectionUseCase)
     assert url == "https://dc.example/login"
