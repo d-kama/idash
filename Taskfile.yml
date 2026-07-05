@@ -53,8 +53,16 @@ tasks:
       - pnpm --filter @idash/infra test
       - pnpm --filter @idash/frontend test
 
+  build-front:
+    desc: "フロントエンドをビルド（生成型で tsc + vite build。IdashFrontendStack の dist 元）"
+    deps: [gen-types]
+    cmds:
+      - pnpm --filter @idash/frontend run build
+
   synth:
     desc: "CDK synth（CloudFormation テンプレート生成。AWS 認証不要）"
+    # IdashFrontendStack の Source.asset('apps/frontend/dist') が synth 時に dist を要求する。
+    deps: [build-front]
     cmds:
       - pnpm --filter @idash/infra exec cdk synth
 
@@ -66,8 +74,14 @@ tasks:
     cmds:
       - uv run uvicorn bff.main:app --reload --port 8000
 
+  front:
+    desc: "フロントエンドをローカル起動（vite dev。/api は task bff へプロキシ）"
+    cmds:
+      - pnpm --filter @idash/frontend exec vite
+
   deploy:
-    desc: "CDK デプロイ（要 AWS 認証。対象は現状 IdashBatchStack のみ）"
+    desc: "CDK デプロイ（要 AWS 認証。build-front 後に全スタックを配備）"
+    deps: [build-front]
     cmds:
       - pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
 

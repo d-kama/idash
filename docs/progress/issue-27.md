@@ -282,12 +282,12 @@ pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/ge
 - [x] 10. **フロント UI**: Tailwind + Recharts 導入、`App` + 各コンポーネント（Hero /
         PortfolioChart / ProductsChart / AssetsTable / PeriodSelector / MetricToggle /
         EmptyState）。vite dev proxy + `task bff` でローカル結合確認（空データ状態含む）。
-- [ ] 11. **IdashFrontendStack**: `basic-auth.js`（JS 2.0 + KVS）+ `KeyValueStore` +
+- [x] 11. **IdashFrontendStack**: `basic-auth.js`（JS 2.0 + KVS。フェイルクローズ）+ `KeyValueStore` +
         Distribution（S3 OAC / `/api/*` behavior / Geo JP / 両 behavior に Function）+
-        BucketDeployment。**`/api/*` の Function は Basic 認証通過後に KVS の `origin-verify` 値を
-        `x-origin-verify` ヘッダへ上書き注入**（→ step 12 の BFF 検証と対）。`bin/app.ts` 配線、
-        Taskfile `build-front`・`synth` deps 更新、スナップショット（asset ハッシュ正規化）。
-        `task check` + `task synth` 緑。
+        BucketDeployment。`bin/app.ts` 配線、Taskfile `build-front`・`front`・`synth`/`deploy` deps 更新、
+        スナップショット（asset ハッシュ 64hex を正規化・dist はテストでスタブ）。`task check` + `task synth` 緑。
+        ※ **origin-verify のヘッダ注入は step 12 で本 Function に追加**（BFF 側検証と原子的に入れるため
+        step 11 は Basic 認証のみ）。
 - [ ] 12. **origin-verify（CloudFront 経由限定化・B 採用）**: `bff.main` に `x-origin-verify` を
         SSM SecureString（`/idash/<env>/origin-verify`、`common.ssm` でキャッシュ）と照合する依存を
         追加し、不一致/欠落は 403。`BffSettings` に `origin_verify_param` を追加、`IdashBffStack` は
