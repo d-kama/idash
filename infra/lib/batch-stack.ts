@@ -4,7 +4,7 @@ import { Alarm, ComparisonOperator, TreatMissingData } from 'aws-cdk-lib/aws-clo
 import { SnsAction } from 'aws-cdk-lib/aws-cloudwatch-actions';
 import { DockerImageCode, DockerImageFunction, type IFunction } from 'aws-cdk-lib/aws-lambda';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
-import { BlockPublicAccess, Bucket } from 'aws-cdk-lib/aws-s3';
+import { BlockPublicAccess, Bucket, type IBucket } from 'aws-cdk-lib/aws-s3';
 import { Schedule, ScheduleExpression } from 'aws-cdk-lib/aws-scheduler';
 import { LambdaInvoke } from 'aws-cdk-lib/aws-scheduler-targets';
 import { Topic } from 'aws-cdk-lib/aws-sns';
@@ -30,6 +30,15 @@ export interface IdashBatchStackProps extends StackProps {
  *   （`S3ErrorPageStore` の書き込み先 = env `ERROR_PAGE_BUCKET`。collect のみ書き込み）。
  */
 export class IdashBatchStack extends Stack {
+  /**
+   * 資産履歴の永続データストア（単一 Parquet を格納する S3 バケット）。
+   * BFF スタックが read 権限付与に使うためプロパティ渡しで公開する（クロススタック参照より
+   * 明示的。既定方針どおり bin/app.ts でプロパティ配線する）。
+   */
+  public readonly dataBucket: IBucket;
+  /** データストアの単一 Parquet の S3 URI（BFF の DATA_LOCATION に渡す）。 */
+  public readonly dataLocation: string;
+
   constructor(scope: Construct, id: string, props: IdashBatchStackProps) {
     super(scope, id, props);
     const { envName } = props;
@@ -80,6 +89,10 @@ export class IdashBatchStack extends Stack {
     // キーは固定 1 ファイル。`s3://` 接頭辞で DuckDb 側が credential_chain 認証を有効化する。
     const dataLocation = `s3://${dataBucket.bucketName}/assets.parquet`;
 
+    // BFF スタックへプロパティ渡しするため公開（同一 Parquet を read 用に共有）。
+    this.dataBucket = dataBucket;
+    this.dataLocation = dataLocation;
+
     // CloudWatch Logs を明示作成（保持 7 日 + スタック削除時に破棄）。
     // logGroupName は付けない（CDK 自動命名）。永続化が要るリソース（S3 等）以外は
     // 自動命名に寄せる方針。Lambda へは logGroup 経由（LoggingConfig）で割り当てる。
@@ -109,6 +122,10 @@ export class IdashBatchStack extends Stack {
         // build context 外の dev ファイル（scripts/ や *.local.json 等）の変更でも
         // image asset ハッシュが揺れ、Vitest snapshot が不要に壊れる。
         ignoreMode: IgnoreMode.DOCKER,
+        // 共有 `.dockerignore` は apps/bff も許可するため、batch イメージのフィンガープリント
+        // からは apps/bff を除外して bff 側変更でハッシュが揺れないようにする（bff 側は逆に
+        // apps/batch を除外）。batch Dockerfile は apps/bff を COPY しないのでイメージ内容は不変。
+        exclude: ['apps/bff'],
       }),
       memorySize: 2048,
       timeout: Duration.minutes(10),
@@ -161,6 +178,8 @@ export class IdashBatchStack extends Stack {
         // notify ハンドラを CMD として上書き（image asset は collect と同一＝1回ビルド）。
         cmd: ['batch.handler_notify.handler'],
         ignoreMode: IgnoreMode.DOCKER,
+        // collect と同一イメージを保つため exclude も同一にする（apps/bff 除外）。
+        exclude: ['apps/bff'],
       }),
       memorySize: 512,
       timeout: Duration.minutes(1),

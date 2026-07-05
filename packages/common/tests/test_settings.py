@@ -2,7 +2,7 @@
 
 import pytest
 
-from common.settings import CollectSettings, NotifySettings
+from common.settings import BffSettings, CollectSettings, NotifySettings
 
 ENV = {
     "ENV_NAME": "dev",
@@ -57,3 +57,23 @@ def test_notify_from_env_missing_required_raises() -> None:
 
     with pytest.raises(KeyError, match="NOTIFY_LINE_PARAM_ARN"):
         NotifySettings.from_env(incomplete)
+
+
+BFF_ENV = {
+    "ENV_NAME": "dev",
+    "DATA_LOCATION": "s3://idash-dev-data/assets.parquet",
+}
+
+
+def test_bff_from_env_reads_all_values() -> None:
+    settings = BffSettings.from_env(BFF_ENV)
+
+    assert settings.env_name == "dev"
+    assert settings.data_location == "s3://idash-dev-data/assets.parquet"
+
+
+def test_bff_from_env_missing_required_raises() -> None:
+    incomplete = {k: v for k, v in BFF_ENV.items() if k != "DATA_LOCATION"}
+
+    with pytest.raises(KeyError, match="DATA_LOCATION"):
+        BffSettings.from_env(incomplete)

@@ -1,15 +1,17 @@
 # Docker ビルドコンテキスト（= リポジトリルート）の除外定義。
 #
-# collect Lambda のコンテナイメージは build context = リポジトリルートでビルドする
-# （apps/batch/Dockerfile が COPY packages/ するため）。CDK の DockerImageCode は
-# IgnoreMode.DOCKER でこのファイルを読み、image asset のフィンガープリント計算にも
-# 同じ除外を適用する。コンテキストに環境依存ファイル（.git / node_modules / .venv /
-# cdk.out / __pycache__ / エディタやツールのローカル成果物）が混ざると、ローカルと
-# CI で image asset ハッシュがずれ、infra の CloudFormation snapshot テストが壊れる。
+# batch（collect/notify）と bff の Lambda コンテナイメージはいずれも build context =
+# リポジトリルートでビルドする（各 Dockerfile が COPY packages/ するため）。CDK の
+# DockerImageCode は **build context 直下の `.dockerignore`（本ファイル）だけ**を読み、
+# IgnoreMode.DOCKER で image asset のフィンガープリント計算にも同じ除外を適用する
+# （`<Dockerfile>.dockerignore` は CDK フィンガープリントでは読まれない）。コンテキストに
+# 環境依存ファイル（.git / node_modules / .venv / cdk.out / __pycache__ 等）が混ざると、
+# ローカルと CI で image asset ハッシュがずれ、infra の CloudFormation snapshot が壊れる。
 #
 # 方式: まず全除外し、ビルドに必要なものだけ再許可する（許可リスト方式）。
-# コンテキストに入るのは Dockerfile が COPY する対象だけになるので、生成物や新しい
-# ツールのキャッシュが増えても除外漏れが起きず、ハッシュは構造的に揺れない。
+# 両イメージが共有する本ファイルでは apps/batch と apps/bff の**両方**を許可し、各 image
+# asset 側の `exclude`（batch は apps/bff を、bff は apps/batch を除外）でハッシュを相互に
+# 分離する（片方のアプリ変更で他方のイメージハッシュが揺れないようにする）。
 
 # いったん全部除外する。
 *
@@ -20,9 +22,12 @@
 !packages
 !apps
 
-# apps は batch だけビルドに要る（bff / frontend は collect イメージに不要）。
+# apps は batch / bff がビルドに要る（frontend はどちらのイメージにも不要）。
+# 各イメージが実際に COPY するのは自分の apps/<name> だけ。ハッシュの相互分離は
+# CDK 側の image asset `exclude` で行う（batch→apps/bff 除外 / bff→apps/batch 除外）。
 apps/*
 !apps/batch
+!apps/bff
 
 # 再許可したツリーに紛れ込む生成物を最後に除外する（後勝ちで効く）。
 **/__pycache__
