@@ -294,8 +294,10 @@ pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/ge
         `ORIGIN_VERIFY_PARAM_ARN` を env で渡し当該 SSM param に `grantRead`。TestClient でヘッダ
         有無の 200/403、settings、スナップショット差分を確認。`task check` + `task synth` 緑。
 - [ ] 13. **ドキュメント**: ADR-0006（ダッシュボードのアクセス制御 = CF Functions Basic 認証 + KVS
-        ＋ origin-verify による CloudFront 経由限定化。背景3制約と代替案比較）/ PROJECT_PLAN.md の
-        Phase 5/6 TODO 解消・SPA フォールバック方針の更新 / README に KVS（basic-auth・
+        ＋ origin-verify による CloudFront 経由限定化。**origin-verify の検証は BFF Lambda 内で行い
+        Lambda Authorizer は不採用**の判断と根拠含む。背景3制約と代替案比較）— **初版は
+        `docs/adr/0006-dashboard-access-control.md` に先行作成済み、実装確定後に最終化** / PROJECT_PLAN.md
+        の Phase 5/6 TODO 解消・SPA フォールバック方針の更新 / README に KVS（basic-auth・
         origin-verify の2キー）と SSM（origin-verify）の手動投入手順とデプロイ順序。
 - [ ] 14. **Phase 6 実デプロイ・E2E 確認**: KVS（2キー）・SSM へ秘密投入 → `task deploy`（--all）→
         CloudFront URL で Basic 認証 → ダッシュボード表示・期間セレクタ・指標トグル・実データ描画を
