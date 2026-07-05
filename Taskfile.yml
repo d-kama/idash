@@ -47,10 +47,11 @@ tasks:
       - pnpm -r run typecheck
 
   test:
-    desc: "テスト（pytest + infra Vitest）"
+    desc: "テスト（pytest + infra/frontend Vitest）"
     cmds:
       - uv run pytest
       - pnpm --filter @idash/infra test
+      - pnpm --filter @idash/frontend test
 
   synth:
     desc: "CDK synth（CloudFormation テンプレート生成。AWS 認証不要）"
