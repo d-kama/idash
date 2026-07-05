@@ -293,7 +293,7 @@ pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/ge
         追加し、不一致/欠落は 403。`BffSettings` に `origin_verify_param` を追加、`IdashBffStack` は
         `ORIGIN_VERIFY_PARAM_ARN` を env で渡し当該 SSM param に `grantRead`。TestClient でヘッダ
         有無の 200/403、settings、スナップショット差分を確認。`task check` + `task synth` 緑。
-- [ ] 13. **ドキュメント**: ADR-0006（ダッシュボードのアクセス制御 = CF Functions Basic 認証 + KVS
+- [x] 13. **ドキュメント**: ADR-0006（ダッシュボードのアクセス制御 = CF Functions Basic 認証 + KVS
         ＋ origin-verify による CloudFront 経由限定化。**origin-verify の検証は BFF Lambda 内で行い
         Lambda Authorizer は不採用**の判断と根拠含む。背景3制約と代替案比較）— **初版は
         `docs/adr/0006-dashboard-access-control.md` に先行作成済み、実装確定後に最終化** / PROJECT_PLAN.md

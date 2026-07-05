@@ -309,7 +309,7 @@ sequenceDiagram
 
 | スタック | 内容 |
 |---|---|
-| **IdashFrontendStack** | S3（OAC・非公開）+ CloudFront + Vite ビルド成果物デプロイ + SPA フォールバック（403/404 → index.html） |
+| **IdashFrontendStack** | S3（OAC・非公開）+ CloudFront + Vite ビルド成果物デプロイ + Basic 認証（CloudFront Function + KVS）+ Geo 制限(JP) + origin-verify（CloudFront 経由限定化）。**SPA フォールバック（403/404→index.html）は入れない**（1ページで不要・`/api/*` のエラー応答まで書き換える副作用回避。ADR-0006 / issue-27） |
 | **IdashBffStack** | HTTP API + Lambda（コンテナ）+ Parameter Store 読取権限（`ssm:GetParameter` + `aws/ssm` の `kms:Decrypt`） |
 | **IdashBatchStack** | EventBridge Scheduler ×2 + Lambda（コンテナ）×2 + Parameter Store 読取権限（`ssm:GetParameter` + `aws/ssm` の `kms:Decrypt`）。同一イメージから `cmd` 違いで2関数（収集/通知）を生成し、スケジュール・メモリ・タイムアウト・権限を個別設定。収集は外部サイト認証情報、通知は通知チャネル認証情報の読取権限を付与 |
 
@@ -343,7 +343,9 @@ tasks:
     cmds: [{task: lint}, {task: typecheck}, {task: test}]
 ```
 
-将来タスク（コメント据置 → 後続フェーズで有効化）: `gen-types`（Pydantic→OpenAPI→TS, Phase 5/6）/ `build-front`（Phase 6）/ フル `deploy`（`--all`, Phase 6）/ `batch`・`bff`・`front`（各ローカル実行）。
+Phase 5/6 で有効化済み: `gen-types`（Pydantic→OpenAPI→TS）/ `build-front`（gen-types 依存）/
+`synth`・`deploy`（build-front 依存・`--all`）/ `bff`・`front`（各ローカル実行）。`task test` は
+infra/frontend の Vitest も含む。
 
 実 deploy（認証後・参考）:
 
@@ -411,19 +413,21 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [x] 実デプロイ＆動作確認（LINE OA 準備・SSM 実値作成・実送信検証まで完了）
 - [x] **確定**: 通知チャネル = LINE Messaging API（push） / 認証 = SSM SecureString `notify-line` / N = env `NOTIFY_DAYS` 既定7（event `days` で上書き） / 頻度・時刻 = 週次・日曜 JST 09:00
 
-### Phase 5: BFF 実装〜デプロイ
-- [ ] `application`: `GetVisualizationData` ユースケース、`schemas`: API レスポンス DTO
-- [ ] `apps/bff`: FastAPI + Mangum（`handler = Mangum(app)`）、ルーターは薄いアダプタ＋DI、`export_openapi.py`
-- [ ] `apps/bff/Dockerfile`、`IdashBffStack`（HTTP API + コンテナ Lambda + SSM 読取 + 予約同時実行=3 + スロットリング）
-- [ ] 型生成パイプライン（Pydantic → OpenAPI → TS、`gen-types` タスク有効化）
-- [ ] 実デプロイ＆動作確認
-- [ ] **TODO: エンドポイント/レスポンス仕様 / Sheets 直読み or キャッシュ層（§9）**
+### Phase 5: BFF 実装〜デプロイ（コード完了・main マージ済み。詳細は issue-27）
+- [x] `application`: `GetVisualizationDataUseCase`、`schemas`: 可視化 DTO / `domain` に `find_all()`
+- [x] `apps/bff`: FastAPI + Mangum（`handler = Mangum(app)`）、DI（`Depends`）、`export_openapi.py`
+- [x] `apps/bff/Dockerfile`、`IdashBffStack`（HTTP API + コンテナ Lambda + 予約同時実行=3 + スロットリング）
+- [x] 型生成パイプライン（Pydantic → OpenAPI → TS、`gen-types` タスク有効化）
+- [x] 実デプロイ＆動作確認（API Gateway 直 URL で実データ応答を確認）
+- [x] **確定**: 単一エンドポイント `GET /api/visualization`（summary + series）/ **Parquet 直読み（キャッシュ層なし・§9 は歴史扱い）** / 期間フィルタはフロント側
 
-### Phase 6: フロントエンド 実装〜デプロイ
-- [ ] `apps/frontend`: Vite + React + TS 本実装、生成型 import（`api/generated`）、API クライアント（`fetch('/api/...')`）
-- [ ] `IdashFrontendStack`（S3 + CloudFront 同一オリジン化 + SPA フォールバック + Geo 制限(JP) + CloudFront Functions IP 制限）
-- [ ] `bin/app.ts` でスタック間プロパティ受け渡し（API GW ドメイン → Frontend）、デプロイ順序（型生成 → フロントビルド → `cdk deploy`）
-- [ ] **TODO: 画面構成・可視化内容 / 許可IPの確定（IP変動時は秘密トークン方式）/ 環境分離(dev/stg/prod) / 独自ドメイン・ACM**
+### Phase 6: フロントエンド 実装〜デプロイ（コード完了・実デプロイ E2E のみ残。詳細は issue-27）
+- [x] `apps/frontend`: Vite + React + TS 本実装（Recharts + Tailwind）、生成型 import、`fetch('/api/...')`
+- [x] `IdashFrontendStack`（S3 OAC + CloudFront 同一オリジン化 + Basic 認証(CF Function+KVS) + Geo 制限(JP) + origin-verify。**SPA フォールバックなし**）
+- [x] `bin/app.ts` でスタック間プロパティ受け渡し（API GW ドメイン → Frontend）、デプロイ順序（型生成 → フロントビルド → `cdk deploy --all`）
+- [x] **確定**: 画面構成・可視化内容（visualization-spec）/ **アクセス制御 = Basic 認証 + Geo(JP) + origin-verify（IP 制限は不採用・ADR-0006）**
+- [ ] 環境分離(dev/stg/prod) / 独自ドメイン・ACM は**スコープ外**（単一環境のまま）
+- [ ] 実デプロイ＆ E2E 確認（KVS/SSM 投入 → CloudFront で Basic 認証 → 描画確認。issue-27 step 14）
 
 ### 横断（全フェーズ共通の確定事項）
 - **Lambda は VPC に入れない**（NAT Gateway 課金回避。§10）。
@@ -716,7 +720,11 @@ export class IdashBatchStack extends Stack {
 
 ### 12.3 IdashFrontendStack（infra/lib/frontend-stack.ts）
 
-Geo 制限（日本のみ）と CloudFront Functions による IP 制限を内包。
+> **注記（実装により置換）**: 以下は初期スケッチ。実装は `infra/lib/frontend-stack.ts` を正とする。
+> アクセス制御は **IP 制限ではなく Basic 認証（CloudFront Function + KVS）+ Geo 制限(JP) +
+> origin-verify（CloudFront 経由限定化）** を採用（ADR-0006）。**SPA フォールバック（errorResponses）は
+> 入れない**（1ページで不要・`/api/*` のエラー応答まで書き換える副作用回避）。以下のスケッチの
+> `ipAllowlistFn` / `errorResponses` / `allowedIps` は不採用。
 
 ```typescript
 import { Stack, StackProps } from 'aws-cdk-lib';
