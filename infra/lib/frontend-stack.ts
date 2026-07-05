@@ -32,11 +32,12 @@ export interface IdashFrontendStackProps extends StackProps {
  *   ホスト以外の viewer ヘッダを転送）。
  * - **Basic 認証**: `cloudfront.Function`（JS 2.0）+ `KeyValueStore` を**両 behavior** の
  *   viewer-request に適用。値は CDK では作らず手動投入（public repo 制約。SSM SecureString と
- *   同じ運用）。origin-verify（CloudFront 経由限定化）は後続で本 Function に注入を追加する。
+ *   同じ運用）。同 Function は `/api/*` で origin-verify も注入する（CloudFront 経由限定化・
+ *   BFF が SSM の期待値と照合）。
  * - **Geo 制限 allowlist(JP)**。SPA フォールバック（403/404→index.html）は入れない（1ページで
  *   不要なうえ、カスタムエラー応答が `/api/*` のエラーまで書き換える副作用があるため）。
- * - 物理名は付けない（自動命名）。サイトバケットはビルド成果物のみで再生成可能なため DESTROY +
- *   autoDeleteObjects（永続データを持つ batch の S3 とは扱いを変える）。
+ * - 物理名は付けない（自動命名）。サイトバケットは DESTROY（autoDeleteObjects は付けない。OAC の
+ *   バケットポリシーと destroy 時に競合し得るため。batch の S3 と同じく空化は手動運用）。
  */
 export class IdashFrontendStack extends Stack {
   /** CloudFront ディストリビューションのドメイン（動作確認 URL） */
@@ -47,11 +48,12 @@ export class IdashFrontendStack extends Stack {
     const { apiDomain } = props;
 
     // 非公開サイトバケット（OAC 経由のみ読める）。ビルド成果物のみ = 消えても再生成可能。
+    // autoDeleteObjects は付けない（OAC のバケットポリシーと destroy 時に競合し DELETE_FAILED の
+    // 恐れ。batch の S3 と同じく、destroy 前に手動で空にする運用）。
     const siteBucket = new Bucket(this, 'SiteBucket', {
       blockPublicAccess: BlockPublicAccess.BLOCK_ALL,
       enforceSSL: true,
       removalPolicy: RemovalPolicy.DESTROY,
-      autoDeleteObjects: true,
     });
 
     // Basic 認証（+将来 origin-verify）の秘密を保持する KVS。値は手動投入（README）。

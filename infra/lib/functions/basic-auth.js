@@ -21,6 +21,7 @@ function unauthorized() {
   };
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: CloudFront Functions のエントリポイント（名前規約で呼ばれる・export しない）
 async function handler(event) {
   const request = event.request;
 

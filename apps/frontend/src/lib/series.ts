@@ -13,14 +13,29 @@ const RANGE_MONTHS: Record<Exclude<PeriodRange, 'ALL'>, number> = {
 };
 
 /**
+ * UTC で N ヶ月前の日付を返す。桁あふれを避けるため日を 1 に寄せてから月を動かし、最後に対象月の
+ * 末日へクランプする（例: 2026-05-31 の 3M → 2026-02-28。素朴な setUTCMonth だと 03-03 にずれる）。
+ */
+function subMonthsUTC(date: Date, months: number): Date {
+  const day = date.getUTCDate();
+  const result = new Date(date);
+  result.setUTCDate(1);
+  result.setUTCMonth(result.getUTCMonth() - months);
+  const lastDay = new Date(
+    Date.UTC(result.getUTCFullYear(), result.getUTCMonth() + 1, 0),
+  ).getUTCDate();
+  result.setUTCDate(Math.min(day, lastDay));
+  return result;
+}
+
+/**
  * 期間セレクタで系列を絞る。基準は「今日」ではなく**データ内の最新基準日**（= series 末尾、
  * 昇順前提）から N ヶ月遡った閉区間。ALL・空系列はそのまま返す。UTC で日付演算し TZ 差を避ける。
  */
 export function filterByRange(series: SeriesPoint[], range: PeriodRange): SeriesPoint[] {
   if (range === 'ALL' || series.length === 0) return series;
   const latest = new Date(series[series.length - 1].base_date);
-  const cutoff = new Date(latest);
-  cutoff.setUTCMonth(cutoff.getUTCMonth() - RANGE_MONTHS[range]);
+  const cutoff = subMonthsUTC(latest, RANGE_MONTHS[range]);
   return series.filter((point) => new Date(point.base_date) >= cutoff);
 }
 

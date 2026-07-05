@@ -51,6 +51,21 @@ describe('filterByRange', () => {
   it('空系列は空のまま', () => {
     expect(filterByRange([], '3M')).toEqual([]);
   });
+
+  it('月末基準日でも桁あふれせず月末クランプで切り出す（05-31 の 3M → 02-28 以降）', () => {
+    const monthEnd = [
+      point('2026-02-27', 'A'),
+      point('2026-02-28', 'A'),
+      point('2026-03-02', 'A'),
+      point('2026-05-31', 'A'),
+    ];
+    // 素朴な setUTCMonth だと cutoff が 03-03 になり 02-28・03-02 が抜ける。クランプで 02-28 以降。
+    expect(filterByRange(monthEnd, '3M').map((p) => p.base_date)).toEqual([
+      '2026-02-28',
+      '2026-03-02',
+      '2026-05-31',
+    ]);
+  });
 });
 
 describe('productUnion', () => {

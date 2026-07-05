@@ -42,6 +42,7 @@ function unauthorized() {
   };
 }
 
+// biome-ignore lint/correctness/noUnusedVariables: CloudFront Functions のエントリポイント（名前規約で呼ばれる・export しない）
 async function handler(event) {
   const request = event.request;
 
@@ -258,64 +259,6 @@ async function handler(event) {
       },
       "Type": "AWS::IAM::Policy",
     },
-    "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F": {
-      "DependsOn": [
-        "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
-      ],
-      "Properties": {
-        "Code": {
-          "S3Bucket": {
-            "Fn::Sub": "cdk-hnb659fds-assets-\${AWS::AccountId}-ap-northeast-1",
-          },
-          "S3Key": "NORMALIZED_ASSET_HASH.zip",
-        },
-        "Description": {
-          "Fn::Join": [
-            "",
-            [
-              "Lambda function for auto-deleting objects in ",
-              {
-                "Ref": "SiteBucket397A1860",
-              },
-              " S3 bucket.",
-            ],
-          ],
-        },
-        "Handler": "index.handler",
-        "MemorySize": 128,
-        "Role": {
-          "Fn::GetAtt": [
-            "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
-            "Arn",
-          ],
-        },
-        "Runtime": "nodejs24.x",
-        "Timeout": 900,
-      },
-      "Type": "AWS::Lambda::Function",
-    },
-    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092": {
-      "Properties": {
-        "AssumeRolePolicyDocument": {
-          "Statement": [
-            {
-              "Action": "sts:AssumeRole",
-              "Effect": "Allow",
-              "Principal": {
-                "Service": "lambda.amazonaws.com",
-              },
-            },
-          ],
-          "Version": "2012-10-17",
-        },
-        "ManagedPolicyArns": [
-          {
-            "Fn::Sub": "arn:\${AWS::Partition}:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
-          },
-        ],
-      },
-      "Type": "AWS::IAM::Role",
-    },
     "DeploySiteAwsCliLayer88B0EBE2": {
       "Properties": {
         "Content": {
@@ -474,35 +417,12 @@ async function handler(event) {
         },
         "Tags": [
           {
-            "Key": "aws-cdk:auto-delete-objects",
-            "Value": "true",
-          },
-          {
             "Key": "aws-cdk:cr-owned:f01780ca",
             "Value": "true",
           },
         ],
       },
       "Type": "AWS::S3::Bucket",
-      "UpdateReplacePolicy": "Delete",
-    },
-    "SiteBucketAutoDeleteObjectsCustomResource9585E968": {
-      "DeletionPolicy": "Delete",
-      "DependsOn": [
-        "SiteBucketPolicy3AC1D0F8",
-      ],
-      "Properties": {
-        "BucketName": {
-          "Ref": "SiteBucket397A1860",
-        },
-        "ServiceToken": {
-          "Fn::GetAtt": [
-            "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F",
-            "Arn",
-          ],
-        },
-      },
-      "Type": "Custom::S3AutoDeleteObjects",
       "UpdateReplacePolicy": "Delete",
     },
     "SiteBucketPolicy3AC1D0F8": {
@@ -522,45 +442,6 @@ async function handler(event) {
               "Effect": "Deny",
               "Principal": {
                 "AWS": "*",
-              },
-              "Resource": [
-                {
-                  "Fn::GetAtt": [
-                    "SiteBucket397A1860",
-                    "Arn",
-                  ],
-                },
-                {
-                  "Fn::Join": [
-                    "",
-                    [
-                      {
-                        "Fn::GetAtt": [
-                          "SiteBucket397A1860",
-                          "Arn",
-                        ],
-                      },
-                      "/*",
-                    ],
-                  ],
-                },
-              ],
-            },
-            {
-              "Action": [
-                "s3:PutBucketPolicy",
-                "s3:GetBucket*",
-                "s3:List*",
-                "s3:DeleteObject*",
-              ],
-              "Effect": "Allow",
-              "Principal": {
-                "AWS": {
-                  "Fn::GetAtt": [
-                    "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
-                    "Arn",
-                  ],
-                },
               },
               "Resource": [
                 {

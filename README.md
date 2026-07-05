@@ -126,7 +126,8 @@ pnpm --filter @idash/infra exec cdk bootstrap aws://<ACCOUNT_ID>/ap-northeast-1
 
 # 3) デプロイ（フロント dist ビルド → 全スタック）
 task deploy
-# または: pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
+# cdk を直接叩く場合も dist が要るので build-front を先に実行する:
+#   task build-front && pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
 ```
 
 #### デプロイ後: ダッシュボードのアクセス制御（CloudFront KVS・IaC 外・手動）

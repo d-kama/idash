@@ -32,7 +32,7 @@ exports[`IdashBffStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:433a6485b7078b65049372fbc9384403a523b808b3bc64518c014b97a78ee595",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:60b22d03081cb92fd0818e25fe06f0a4f8aa5e5cffd0b5de9b152f8b68bddf71",
           },
         },
         "Environment": {
