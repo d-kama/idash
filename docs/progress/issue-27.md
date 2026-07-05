@@ -228,23 +228,29 @@ pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/ge
 
 ### Phase 5: BFF（`feature/bff`）
 
-- [ ] 1. **ポート拡張**: `domain.asset.AssetRepository` に `find_all()` を追加し、
+- [x] 1. **ポート拡張**: `domain.asset.AssetRepository` に `find_all()` を追加し、
        `DuckDbAssetRepository` に実装（既存 read 経路の WHERE なし版・基準日昇順）。
        既存テストのフェイク（application/batch の conftest）にも `find_all` を足す。
        ローカル parquet での round-trip テスト追加。`task check` 緑。
-- [ ] 2. **schemas DTO**: `schemas/visualization.py` に `AssetAmounts` / `ProductSnapshot` /
+- [x] 2. **schemas DTO**: `schemas/visualization.py` に `AssetAmounts` / `ProductSnapshot` /
        `SeriesPoint` / `VisualizationSummary` / `VisualizationResponse` を定義。
        シリアライズ（date の ISO 化・None summary）の単体テスト。
-- [ ] 3. **ユースケース**: `application/visualization.py` に `GetVisualizationDataUseCase`。
+- [x] 3. **ユースケース**: `application/visualization.py` に `GetVisualizationDataUseCase`。
        フェイクリポジトリで 0件（summary=None/series=[]）/ 1件（前回比±0）/ 複数件
        （直近2基準日の前回比・series 昇順・商品欠測日の素通し）をテスト。
-- [ ] 4. **bff アプリ**: `bff/main.py`（FastAPI + `Depends` DI + Mangum）/
+- [x] 4. **bff アプリ**: `bff/main.py`（FastAPI + `Depends` DI + Mangum）/
        `bff/export_openapi.py` / `common.settings.BffSettings`。TestClient +
        `dependency_overrides` で 200 応答・JSON 形・空データ応答をテスト。
        `task bff`（ローカル uvicorn）タスク有効化。
-- [ ] 5. **bff Dockerfile**: chrome なし縮小版（uv sync --package idash-bff + DuckDB 拡張
+- [x] 5. **bff Dockerfile**: chrome なし縮小版（uv sync --package idash-bff + DuckDB 拡張
        事前 INSTALL + `CMD ["bff.main.handler"]`）。ローカル `docker build` で成功確認。
-- [ ] 6. **IdashBffStack**: `IdashBatchStack` に `dataBucket` / `dataLocation` の public
+       - **dockerignore 方式（確定）**: CDK の image asset フィンガープリントは build context
+         直下の `.dockerignore` **のみ**読む（`<Dockerfile>.dockerignore` は無視）。よって共有
+         root `.dockerignore` で apps/batch・apps/bff の両方を許可し、各 image asset の
+         `exclude`（batch→`apps/bff` / bff→`apps/batch`）でハッシュを相互分離する。これで
+         片方の**ソース**変更が他方のイメージハッシュを揺らさない（`.dockerignore` 自体の
+         編集時は両ハッシュが1回だけ変わる＝context 定義の変更として正当）。
+- [x] 6. **IdashBffStack**: `IdashBatchStack` に `dataBucket` / `dataLocation` の public
        プロパティを追加 → `bff-stack.ts` 新設（HTTP API + コンテナ Lambda + grantRead +
        スロットリング + 予約同時実行 3）→ `bin/app.ts` 配線。スナップショットテスト追加
        （`pnpm --filter @idash/infra run test:update`）。`task synth` 緑。
