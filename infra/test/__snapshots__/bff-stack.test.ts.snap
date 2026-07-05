@@ -1,0 +1,258 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`IdashBffStack > matches the CloudFormation snapshot 1`] = `
+{
+  "Parameters": {
+    "BootstrapVersion": {
+      "Default": "/cdk-bootstrap/hnb659fds/version",
+      "Description": "Version of the CDK Bootstrap resources in this environment, automatically retrieved from SSM Parameter Store. [cdk:skip]",
+      "Type": "AWS::SSM::Parameter::Value<String>",
+    },
+  },
+  "Resources": {
+    "BffDefaultStage0C860CBB": {
+      "Properties": {
+        "ApiId": {
+          "Ref": "BffHttpApi93624D4E",
+        },
+        "AutoDeploy": true,
+        "DefaultRouteSettings": {
+          "ThrottlingBurstLimit": 40,
+          "ThrottlingRateLimit": 20,
+        },
+        "StageName": "$default",
+      },
+      "Type": "AWS::ApiGatewayV2::Stage",
+    },
+    "BffFnA38758A6": {
+      "DependsOn": [
+        "BffFnServiceRoleDefaultPolicyDF6F62BD",
+        "BffFnServiceRoleBCDF82E1",
+      ],
+      "Properties": {
+        "Code": {
+          "ImageUri": {
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:a64faa50332b3e7349cd4aa28647107df1a23b30e8f8a25349deb40243f1d1e3",
+          },
+        },
+        "Environment": {
+          "Variables": {
+            "DATA_LOCATION": {
+              "Fn::Join": [
+                "",
+                [
+                  "s3://",
+                  {
+                    "Fn::ImportValue": "Idash-dev-Batch:ExportsOutputRefDataBucketE3889A50250F5285",
+                  },
+                  "/assets.parquet",
+                ],
+              ],
+            },
+            "ENV_NAME": "dev",
+          },
+        },
+        "LoggingConfig": {
+          "LogGroup": {
+            "Ref": "BffFnLogGroupB6675FE7",
+          },
+        },
+        "MemorySize": 512,
+        "PackageType": "Image",
+        "ReservedConcurrentExecutions": 3,
+        "Role": {
+          "Fn::GetAtt": [
+            "BffFnServiceRoleBCDF82E1",
+            "Arn",
+          ],
+        },
+        "Timeout": 29,
+      },
+      "Type": "AWS::Lambda::Function",
+    },
+    "BffFnLogGroupB6675FE7": {
+      "DeletionPolicy": "Delete",
+      "Properties": {
+        "RetentionInDays": 7,
+      },
+      "Type": "AWS::Logs::LogGroup",
+      "UpdateReplacePolicy": "Delete",
+    },
+    "BffFnServiceRoleBCDF82E1": {
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com",
+              },
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition",
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole",
+              ],
+            ],
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Role",
+    },
+    "BffFnServiceRoleDefaultPolicyDF6F62BD": {
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": [
+                "s3:GetObject*",
+                "s3:GetBucket*",
+                "s3:List*",
+              ],
+              "Effect": "Allow",
+              "Resource": [
+                {
+                  "Fn::ImportValue": "Idash-dev-Batch:ExportsOutputFnGetAttDataBucketE3889A50Arn98F8399F",
+                },
+                {
+                  "Fn::Join": [
+                    "",
+                    [
+                      {
+                        "Fn::ImportValue": "Idash-dev-Batch:ExportsOutputFnGetAttDataBucketE3889A50Arn98F8399F",
+                      },
+                      "/*",
+                    ],
+                  ],
+                },
+              ],
+            },
+          ],
+          "Version": "2012-10-17",
+        },
+        "PolicyName": "BffFnServiceRoleDefaultPolicyDF6F62BD",
+        "Roles": [
+          {
+            "Ref": "BffFnServiceRoleBCDF82E1",
+          },
+        ],
+      },
+      "Type": "AWS::IAM::Policy",
+    },
+    "BffHttpApi93624D4E": {
+      "Properties": {
+        "Name": "BffHttpApi",
+        "ProtocolType": "HTTP",
+      },
+      "Type": "AWS::ApiGatewayV2::Api",
+    },
+    "BffHttpApiGETapiproxy9D14E5E7": {
+      "Properties": {
+        "ApiId": {
+          "Ref": "BffHttpApi93624D4E",
+        },
+        "AuthorizationType": "NONE",
+        "RouteKey": "GET /api/{proxy+}",
+        "Target": {
+          "Fn::Join": [
+            "",
+            [
+              "integrations/",
+              {
+                "Ref": "BffHttpApiGETapiproxyBffIntegrationB6A6A579",
+              },
+            ],
+          ],
+        },
+      },
+      "Type": "AWS::ApiGatewayV2::Route",
+    },
+    "BffHttpApiGETapiproxyBffIntegrationB6A6A579": {
+      "Properties": {
+        "ApiId": {
+          "Ref": "BffHttpApi93624D4E",
+        },
+        "IntegrationType": "AWS_PROXY",
+        "IntegrationUri": {
+          "Fn::GetAtt": [
+            "BffFnA38758A6",
+            "Arn",
+          ],
+        },
+        "PayloadFormatVersion": "2.0",
+      },
+      "Type": "AWS::ApiGatewayV2::Integration",
+    },
+    "BffHttpApiGETapiproxyBffIntegrationPermission5883A125": {
+      "Properties": {
+        "Action": "lambda:InvokeFunction",
+        "FunctionName": {
+          "Fn::GetAtt": [
+            "BffFnA38758A6",
+            "Arn",
+          ],
+        },
+        "Principal": "apigateway.amazonaws.com",
+        "SourceArn": {
+          "Fn::Join": [
+            "",
+            [
+              "arn:",
+              {
+                "Ref": "AWS::Partition",
+              },
+              ":execute-api:ap-northeast-1:",
+              {
+                "Ref": "AWS::AccountId",
+              },
+              ":",
+              {
+                "Ref": "BffHttpApi93624D4E",
+              },
+              "/*/*/api/{proxy+}",
+            ],
+          ],
+        },
+      },
+      "Type": "AWS::Lambda::Permission",
+    },
+  },
+  "Rules": {
+    "CheckBootstrapVersion": {
+      "Assertions": [
+        {
+          "Assert": {
+            "Fn::Not": [
+              {
+                "Fn::Contains": [
+                  [
+                    "1",
+                    "2",
+                    "3",
+                    "4",
+                    "5",
+                  ],
+                  {
+                    "Ref": "BootstrapVersion",
+                  },
+                ],
+              },
+            ],
+          },
+          "AssertDescription": "CDK bootstrap stack version 6 required. Please run 'cdk bootstrap' with a recent version of the CDK CLI.",
+        },
+      ],
+    },
+  },
+}
+`;
