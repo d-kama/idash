@@ -123,6 +123,13 @@ class DuckDbAssetRepository:
             con.close()
 
     def find_by_date_range(self, from_date: date, to_date: date) -> Sequence[PortfolioAsset]:
+        return self._read(where="WHERE base_date BETWEEN ? AND ?", params=[from_date, to_date])
+
+    def find_all(self) -> Sequence[PortfolioAsset]:
+        # 区間指定なしの全件 read（WHERE 句を外すだけ）。基準日昇順は共通の ORDER BY で担保。
+        return self._read(where="", params=[])
+
+    def _read(self, *, where: str, params: Sequence[object]) -> Sequence[PortfolioAsset]:
         con = self._connect()
         try:
             if not self._exists(con):
@@ -132,8 +139,8 @@ class DuckDbAssetRepository:
             rows = con.execute(
                 f"SELECT base_date, {', '.join(_PRODUCT_COLUMNS)} "  # noqa: S608
                 f"FROM read_parquet({self._quoted_location}) "
-                f"WHERE base_date BETWEEN ? AND ? ORDER BY base_date, seq",
-                [from_date, to_date],
+                f"{where} ORDER BY base_date, seq",
+                list(params),
             ).fetchall()
         finally:
             con.close()

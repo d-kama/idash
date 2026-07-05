@@ -121,3 +121,11 @@ class AssetRepository(Protocol):
         区間内に実在する基準日だけを返す（歯抜け許容、件数 0 もあり得る）。
         """
         ...
+
+    def find_all(self) -> Sequence[PortfolioAsset]:
+        """全期間の PortfolioAsset を基準日昇順で返す（区間指定なし・件数 0 もあり得る）。
+
+        可視化（BFF）が全期間をそのまま返す用途。番兵日付を区間クエリに渡す代わりに
+        「全期間」という意図を型で表現する。
+        """
+        ...

@@ -94,6 +94,10 @@ class _PrintAssetRepository:
         # 収集（dry-run）専用。read 系は使わない。
         raise NotImplementedError
 
+    def find_all(self) -> Sequence[PortfolioAsset]:
+        # 収集（dry-run）専用。read 系は使わない。
+        raise NotImplementedError
+
 
 class _LocalFileErrorPageStore:
     """ErrorPageStore のローカル版。失敗時点のページを `./errorpages/` 配下へ書く。

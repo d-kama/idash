@@ -89,6 +89,9 @@ class InMemoryAssetRepository:
         in_range = [a for a in self.saved if from_date <= a.base_date <= to_date]
         return sorted(in_range, key=lambda a: a.base_date)
 
+    def find_all(self) -> list[PortfolioAsset]:
+        return sorted(self.saved, key=lambda a: a.base_date)
+
 
 class RecordingNotifier:
     """受領した Notification を記録するインメモリ Notifier。"""

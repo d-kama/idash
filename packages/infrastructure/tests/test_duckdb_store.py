@@ -171,6 +171,48 @@ def test_find_returns_empty_when_no_row_in_range(tmp_path: Path) -> None:
     assert repo.find_by_date_range(date(2026, 1, 1), date(2026, 1, 31)) == []
 
 
+def test_find_all_returns_empty_when_file_not_exists(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+
+    # 一度も save していない（parquet 未存在）→ 空。
+    assert repo.find_all() == []
+
+
+def test_find_all_returns_every_base_date_ascending(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    for base in (date(2026, 6, 18), date(2026, 6, 16), date(2026, 6, 17)):  # あえて非昇順
+        repo.save(
+            PortfolioAsset(
+                base_date=base,
+                products=(
+                    ProductAsset(
+                        name="ファンドA",
+                        contribution=Money(100_000),
+                        profit_loss=Money(0),
+                        valuation=Money(100_000),
+                    ),
+                ),
+            )
+        )
+
+    # 全期間を基準日昇順で返す（区間指定なし）。
+    result = repo.find_all()
+    assert [a.base_date for a in result] == [
+        date(2026, 6, 16),
+        date(2026, 6, 17),
+        date(2026, 6, 18),
+    ]
+
+
+def test_find_all_round_trip_and_preserves_product_order(tmp_path: Path) -> None:
+    repo = _make_repo(tmp_path)
+    repo.save(ASSET)
+
+    result = repo.find_all()
+
+    assert result == [ASSET]  # 型保持で exact round-trip・商品順維持
+
+
 @pytest.mark.parametrize("location", ["s3://bucket/assets.parquet", "/tmp/x.parquet"])
 def test_is_s3_detection(location: str) -> None:
     repo = DuckDbAssetRepository(DuckDbConfig(location=location))
