@@ -15,13 +15,14 @@ from __future__ import annotations
 from functools import cache
 from typing import Annotated
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Header, HTTPException
 from mangum import Mangum
 
 from application.visualization import (
     GetVisualizationDataInputBoundary,
     GetVisualizationDataUseCase,
 )
+from common import ssm
 from common.settings import BffSettings
 from infrastructure.duckdb_store import DuckDbAssetRepository, DuckDbConfig
 from schemas.visualization import VisualizationResponse
@@ -52,10 +53,43 @@ def get_use_case() -> GetVisualizationDataInputBoundary:
     return _build_use_case()
 
 
+@cache
+def get_origin_secret() -> str | None:
+    """origin-verify の期待値（SSM SecureString）を返す。未設定なら None（検証無効）。
+
+    CloudFront 経由限定化（ADR-0006）。CloudFront Function が正規リクエストにのみ注入する
+    `x-origin-verify` を照合する。ローカル `task bff` 等 `ORIGIN_VERIFY_PARAM_ARN` 未設定では
+    None を返し検証しない。コールドスタート時に1回だけ SSM を引く（`functools.cache`）。
+    """
+    settings = BffSettings.from_env()
+    if settings.origin_verify_param is None:
+        return None
+    return ssm.get_secure_string(settings.origin_verify_param)
+
+
+def verify_origin(
+    x_origin_verify: Annotated[str | None, Header()] = None,
+    expected: Annotated[str | None, Depends(get_origin_secret)] = None,
+) -> None:
+    """CloudFront が注入する `x-origin-verify` を照合し、不一致/欠落なら 403。
+
+    `expected` が None（未配線/ローカル）なら検証しない。API Gateway を直叩きした相手は秘密値を
+    知らず弾かれる（CloudFront は迂回できない）。テストは get_origin_secret を override する。
+    """
+    if expected is None:
+        return
+    if x_origin_verify != expected:
+        raise HTTPException(status_code=403, detail="forbidden")
+
+
 app = FastAPI(title="idash visualization BFF")
 
 
-@app.get("/api/visualization", response_model=VisualizationResponse)
+@app.get(
+    "/api/visualization",
+    response_model=VisualizationResponse,
+    dependencies=[Depends(verify_origin)],
+)
 def get_visualization(
     use_case: Annotated[GetVisualizationDataInputBoundary, Depends(get_use_case)],
 ) -> VisualizationResponse:

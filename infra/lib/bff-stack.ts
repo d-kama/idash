@@ -5,6 +5,7 @@ import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations
 import { DockerImageCode, DockerImageFunction } from 'aws-cdk-lib/aws-lambda';
 import { LogGroup, RetentionDays } from 'aws-cdk-lib/aws-logs';
 import type { IBucket } from 'aws-cdk-lib/aws-s3';
+import { StringParameter } from 'aws-cdk-lib/aws-ssm';
 import type { Construct } from 'constructs';
 
 export interface IdashBffStackProps extends StackProps {
@@ -52,6 +53,17 @@ export class IdashBffStack extends Stack {
     // build context = リポジトリルート（COPY packages/ + apps/bff/ のため）。infra/lib から 2 つ上。
     const repoRoot = path.join(__dirname, '../..');
 
+    // origin-verify（CloudFront 経由限定化・ADR-0006）の期待値を保持する SSM SecureString。
+    // CDK では作成せず名前でインポート（CFn は SecureString 非対応。AWS 側で手動作成）。
+    // CloudFront KVS の `origin-verify` と同一値を投入する運用。
+    const originVerifyParam = StringParameter.fromSecureStringParameterAttributes(
+      this,
+      'OriginVerify',
+      {
+        parameterName: `/idash/${envName}/origin-verify`,
+      },
+    );
+
     // 可視化 API Lambda（chrome なし縮小イメージ）。runtime/handler はイメージの CMD が決める。
     // functionName は付けない（CDK 自動命名。PackageType 変更時の置換衝突を避ける）。
     const bffFn = new DockerImageFunction(this, 'BffFn', {
@@ -72,11 +84,15 @@ export class IdashBffStack extends Stack {
       environment: {
         ENV_NAME: envName,
         DATA_LOCATION: dataLocation,
+        ORIGIN_VERIFY_PARAM_ARN: originVerifyParam.parameterArn,
       },
     });
 
     // データストアは read のみ（可視化は集計して返すだけ・書き込まない）。glob の LIST も含む。
     dataBucket.grantRead(bffFn);
+
+    // origin-verify の期待値を読む（aws/ssm マネージドキーのため kms:Decrypt の明示付与は不要）。
+    originVerifyParam.grantRead(bffFn);
 
     // HTTP API（API Gateway v2）。既定ステージはスロットリング設定のため手動作成する
     // （createDefaultStage: false）。`/api/*` のみ Lambda へ流し、FastAPI が `/api/visualization`

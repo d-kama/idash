@@ -288,7 +288,7 @@ pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/ge
         スナップショット（asset ハッシュ 64hex を正規化・dist はテストでスタブ）。`task check` + `task synth` 緑。
         ※ **origin-verify のヘッダ注入は step 12 で本 Function に追加**（BFF 側検証と原子的に入れるため
         step 11 は Basic 認証のみ）。
-- [ ] 12. **origin-verify（CloudFront 経由限定化・B 採用）**: `bff.main` に `x-origin-verify` を
+- [x] 12. **origin-verify（CloudFront 経由限定化・B 採用）**: `bff.main` に `x-origin-verify` を
         SSM SecureString（`/idash/<env>/origin-verify`、`common.ssm` でキャッシュ）と照合する依存を
         追加し、不一致/欠落は 403。`BffSettings` に `origin_verify_param` を追加、`IdashBffStack` は
         `ORIGIN_VERIFY_PARAM_ARN` を env で渡し当該 SSM param に `grantRead`。TestClient でヘッダ

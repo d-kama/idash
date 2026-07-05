@@ -70,6 +70,14 @@ def test_bff_from_env_reads_all_values() -> None:
 
     assert settings.env_name == "dev"
     assert settings.data_location == "s3://idash-dev-data/assets.parquet"
+    assert settings.origin_verify_param is None  # 未設定なら検証無効
+
+
+def test_bff_from_env_reads_optional_origin_verify() -> None:
+    env = {**BFF_ENV, "ORIGIN_VERIFY_PARAM_ARN": "/idash/dev/origin-verify"}
+    settings = BffSettings.from_env(env)
+
+    assert settings.origin_verify_param == "/idash/dev/origin-verify"
 
 
 def test_bff_from_env_missing_required_raises() -> None:

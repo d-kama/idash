@@ -41,3 +41,30 @@ def test_get_secure_json_caches_first_value() -> None:
 def test_get_secure_json_missing_parameter_raises() -> None:
     with pytest.raises(Exception):  # noqa: B017  ParameterNotFound（boto3 例外型に依存しない）
         ssm.get_secure_json("/idash/dev/does-not-exist")
+
+
+ORIGIN_VERIFY_NAME = "/idash/dev/origin-verify"
+SECRET = "s3cr3t-origin-token"
+
+
+@mock_aws
+def test_get_secure_string_decrypts_raw_value() -> None:
+    ssm._string_cache.clear()
+    client = boto3.client("ssm", region_name="ap-northeast-1")
+    client.put_parameter(Name=ORIGIN_VERIFY_NAME, Value=SECRET, Type="SecureString")
+
+    assert ssm.get_secure_string(ORIGIN_VERIFY_NAME) == SECRET
+
+
+@mock_aws
+def test_get_secure_string_caches_first_value() -> None:
+    ssm._string_cache.clear()
+    client = boto3.client("ssm", region_name="ap-northeast-1")
+    client.put_parameter(Name=ORIGIN_VERIFY_NAME, Value=SECRET, Type="SecureString")
+
+    first = ssm.get_secure_string(ORIGIN_VERIFY_NAME)
+    client.put_parameter(
+        Name=ORIGIN_VERIFY_NAME, Value="rotated", Type="SecureString", Overwrite=True
+    )
+
+    assert ssm.get_secure_string(ORIGIN_VERIFY_NAME) == first == SECRET
