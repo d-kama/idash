@@ -10,11 +10,16 @@
   },
   "dependencies": {
     "react": "^19",
-    "react-dom": "^19"
+    "react-dom": "^19",
+    "recharts": "^3"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^5",
     "openapi-typescript": "^7",
+    "tailwindcss": "^4",
     "typescript": "^5",
     "vite": "^7",
     "vitest": "^3"

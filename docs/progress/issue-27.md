@@ -279,7 +279,7 @@ pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/ge
        `task gen-types` → frontend `typecheck` が生成型で通ることを確認。
 - [x] 9. **フロント純粋ロジック**: `src/lib/`（filterByRange / productUnion / formatYen 等）を
        vitest で TDD。`task test` に frontend vitest を組み込み。
-- [ ] 10. **フロント UI**: Tailwind + Recharts 導入、`App` + 各コンポーネント（Hero /
+- [x] 10. **フロント UI**: Tailwind + Recharts 導入、`App` + 各コンポーネント（Hero /
         PortfolioChart / ProductsChart / AssetsTable / PeriodSelector / MetricToggle /
         EmptyState）。vite dev proxy + `task bff` でローカル結合確認（空データ状態含む）。
 - [ ] 11. **IdashFrontendStack**: `basic-auth.js`（JS 2.0 + KVS）+ `KeyValueStore` +
