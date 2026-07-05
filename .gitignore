@@ -24,6 +24,15 @@ node_modules/
 apps/frontend/dist/
 # pnpm-lock.yaml はコミット対象なので無視しない
 
+# 型生成の生成物（Pydantic → OpenAPI → TS。task gen-types が生成・非コミット。
+# Pydantic を単一の真実源に保ち、生成物の鮮度ドリフトを構造的に排除する）
+apps/frontend/openapi.json
+apps/frontend/src/api/generated/
+
+# ---- ローカルデータストア ----
+# task bff のローカル BFF が read する Parquet（個人資産データを含み得るため追跡しない）
+/data/
+
 # ---- CDK ----
 cdk.out/
 *.cdk.staging/

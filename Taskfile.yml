@@ -29,8 +29,19 @@ tasks:
       - uv run ruff format .
       - pnpm exec biome format --write .
 
+  gen-types:
+    desc: "Pydantic → OpenAPI → TS 型を生成（生成物は非コミット。frontend が import）"
+    cmds:
+      # export_openapi は bff.main を import して app.openapi() を出力するだけ（DB/env 不要）。
+      - uv run python -m bff.export_openapi > apps/frontend/openapi.json
+      # --filter で frontend ディレクトリ基準に実行（openapi.json / 出力先とも相対）。
+      - pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/generated/schema.d.ts
+
   typecheck:
     desc: "型チェック（Python: ty / TS: tsc）"
+    # frontend の tsc は生成型（schema.d.ts）に依存するため先に生成する（非コミットのため
+    # クリーン環境でも通す）。Python 側の ty は生成型に依存しないが、まとめて gen-types 後に走らせる。
+    deps: [gen-types]
     cmds:
       - uv run ty check
       - pnpm -r run typecheck

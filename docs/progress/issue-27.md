@@ -274,7 +274,7 @@ pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/ge
 
 ### Phase 6: フロントエンド（`feature/frontend`）
 
-- [ ] 8. **型生成有効化**: frontend に devDeps（openapi-typescript / vitest）+ `build`・`test`
+- [x] 8. **型生成有効化**: frontend に devDeps（openapi-typescript / vitest）+ `build`・`test`
        スクリプト追加、Taskfile `gen-types` 有効化、生成物を gitignore。
        `task gen-types` → frontend `typecheck` が生成型で通ることを確認。
 - [ ] 9. **フロント純粋ロジック**: `src/lib/`（filterByRange / productUnion / formatYen 等）を
