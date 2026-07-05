@@ -46,6 +46,14 @@ tasks:
     cmds:
       - pnpm --filter @idash/infra exec cdk synth
 
+  bff:
+    desc: "BFF をローカル起動（uvicorn。/api/visualization を http://localhost:8000 で提供）"
+    env:
+      ENV_NAME: local
+      DATA_LOCATION: '{{.DATA_LOCATION | default "data/assets.parquet"}}'
+    cmds:
+      - uv run uvicorn bff.main:app --reload --port 8000
+
   deploy:
     desc: "CDK デプロイ（要 AWS 認証。対象は現状 IdashBatchStack のみ）"
     cmds:

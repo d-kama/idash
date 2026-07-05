@@ -18,6 +18,8 @@ dev = [
     "pytest",
     "pytest-cov",
     "moto",
+    "httpx",  # FastAPI TestClient（BFF テスト）が要求する HTTP クライアント
+    "uvicorn",  # ローカル BFF 起動（task bff）用。Lambda は Mangum のため本番イメージには含めない
     # ワークスペース全メンバーを dev に editable 投入する。これにより `uv sync` 後の
     # `uv run`（pytest / ty / ruff）が src レイアウトの各パッケージを import 解決できる。
     # プレーンな `uv sync` は依存されていないメンバーを prune するため、テスト・型チェックを

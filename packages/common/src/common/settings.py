@@ -69,3 +69,24 @@ class NotifySettings:
             notify_days=int(notify_days) if notify_days is not None else 7,
             data_location=_require(env, "DATA_LOCATION"),
         )
+
+
+@dataclass(frozen=True)
+class BffSettings:
+    """BFF（可視化 API）の実行に必要な環境変数。
+
+    データストア read（`data_location` の単一 Parquet）のみを要する。S3 アクセスは実行
+    ロール認証（静的キーなし）のため SSM 機密は不要で、収集/通知固有のパラメータも持たない。
+    """
+
+    env_name: str
+    data_location: str
+
+    @classmethod
+    def from_env(cls, env: Mapping[str, str] | None = None) -> BffSettings:
+        """環境変数（既定で `os.environ`）から BffSettings を構築する。"""
+        env = os.environ if env is None else env
+        return cls(
+            env_name=_require(env, "ENV_NAME"),
+            data_location=_require(env, "DATA_LOCATION"),
+        )
