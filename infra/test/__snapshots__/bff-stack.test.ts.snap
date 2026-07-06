@@ -32,7 +32,7 @@ exports[`IdashBffStack > matches the CloudFormation snapshot 1`] = `
       "Properties": {
         "Code": {
           "ImageUri": {
-            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:a64faa50332b3e7349cd4aa28647107df1a23b30e8f8a25349deb40243f1d1e3",
+            "Fn::Sub": "\${AWS::AccountId}.dkr.ecr.ap-northeast-1.\${AWS::URLSuffix}/cdk-hnb659fds-container-assets-\${AWS::AccountId}-ap-northeast-1:60b22d03081cb92fd0818e25fe06f0a4f8aa5e5cffd0b5de9b152f8b68bddf71",
           },
         },
         "Environment": {
@@ -50,6 +50,22 @@ exports[`IdashBffStack > matches the CloudFormation snapshot 1`] = `
               ],
             },
             "ENV_NAME": "dev",
+            "ORIGIN_VERIFY_PARAM_ARN": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition",
+                  },
+                  ":ssm:ap-northeast-1:",
+                  {
+                    "Ref": "AWS::AccountId",
+                  },
+                  ":parameter/idash/dev/origin-verify",
+                ],
+              ],
+            },
           },
         },
         "LoggingConfig": {
@@ -136,6 +152,31 @@ exports[`IdashBffStack > matches the CloudFormation snapshot 1`] = `
                   ],
                 },
               ],
+            },
+            {
+              "Action": [
+                "ssm:DescribeParameters",
+                "ssm:GetParameters",
+                "ssm:GetParameter",
+                "ssm:GetParameterHistory",
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    "arn:",
+                    {
+                      "Ref": "AWS::Partition",
+                    },
+                    ":ssm:ap-northeast-1:",
+                    {
+                      "Ref": "AWS::AccountId",
+                    },
+                    ":parameter/idash/dev/origin-verify",
+                  ],
+                ],
+              },
             },
           ],
           "Version": "2012-10-17",

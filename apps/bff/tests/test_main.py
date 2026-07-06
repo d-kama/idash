@@ -13,7 +13,7 @@ from datetime import date
 import pytest
 from fastapi.testclient import TestClient
 
-from bff.main import app, get_use_case
+from bff.main import app, get_origin_secret, get_use_case
 from schemas.visualization import (
     AssetAmounts,
     ProductSnapshot,
@@ -33,6 +33,8 @@ class _StubUseCase:
 
 def _client(response: VisualizationResponse) -> Iterator[TestClient]:
     app.dependency_overrides[get_use_case] = lambda: _StubUseCase(response)
+    # origin-verify は既定で無効（None）にして通常経路を検証する（検証自体は別テスト）。
+    app.dependency_overrides[get_origin_secret] = lambda: None
     try:
         yield TestClient(app)
     finally:
@@ -93,3 +95,37 @@ def test_get_visualization_empty_returns_null_summary_and_empty_series(
 
     assert res.status_code == 200
     assert res.json() == {"summary": None, "series": []}
+
+
+# --- origin-verify（CloudFront 経由限定化） -------------------------------------
+
+SECRET = "expected-origin-token"
+
+
+@pytest.fixture
+def verified_client() -> Iterator[TestClient]:
+    """origin-verify を有効化（期待値 = SECRET）したクライアント。"""
+    app.dependency_overrides[get_use_case] = lambda: _StubUseCase(
+        VisualizationResponse(summary=None, series=[])
+    )
+    app.dependency_overrides[get_origin_secret] = lambda: SECRET
+    try:
+        yield TestClient(app)
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_origin_verify_allows_matching_header(verified_client: TestClient) -> None:
+    res = verified_client.get("/api/visualization", headers={"x-origin-verify": SECRET})
+    assert res.status_code == 200
+
+
+def test_origin_verify_rejects_missing_header(verified_client: TestClient) -> None:
+    # CloudFront を迂回した直叩き（ヘッダなし）は 403。
+    res = verified_client.get("/api/visualization")
+    assert res.status_code == 403
+
+
+def test_origin_verify_rejects_wrong_header(verified_client: TestClient) -> None:
+    res = verified_client.get("/api/visualization", headers={"x-origin-verify": "forged"})
+    assert res.status_code == 403

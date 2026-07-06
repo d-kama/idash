@@ -274,26 +274,26 @@ pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/ge
 
 ### Phase 6: フロントエンド（`feature/frontend`）
 
-- [ ] 8. **型生成有効化**: frontend に devDeps（openapi-typescript / vitest）+ `build`・`test`
+- [x] 8. **型生成有効化**: frontend に devDeps（openapi-typescript / vitest）+ `build`・`test`
        スクリプト追加、Taskfile `gen-types` 有効化、生成物を gitignore。
        `task gen-types` → frontend `typecheck` が生成型で通ることを確認。
-- [ ] 9. **フロント純粋ロジック**: `src/lib/`（filterByRange / productUnion / formatYen 等）を
+- [x] 9. **フロント純粋ロジック**: `src/lib/`（filterByRange / productUnion / formatYen 等）を
        vitest で TDD。`task test` に frontend vitest を組み込み。
-- [ ] 10. **フロント UI**: Tailwind + Recharts 導入、`App` + 各コンポーネント（Hero /
+- [x] 10. **フロント UI**: Tailwind + Recharts 導入、`App` + 各コンポーネント（Hero /
         PortfolioChart / ProductsChart / AssetsTable / PeriodSelector / MetricToggle /
         EmptyState）。vite dev proxy + `task bff` でローカル結合確認（空データ状態含む）。
-- [ ] 11. **IdashFrontendStack**: `basic-auth.js`（JS 2.0 + KVS）+ `KeyValueStore` +
+- [x] 11. **IdashFrontendStack**: `basic-auth.js`（JS 2.0 + KVS。フェイルクローズ）+ `KeyValueStore` +
         Distribution（S3 OAC / `/api/*` behavior / Geo JP / 両 behavior に Function）+
-        BucketDeployment。**`/api/*` の Function は Basic 認証通過後に KVS の `origin-verify` 値を
-        `x-origin-verify` ヘッダへ上書き注入**（→ step 12 の BFF 検証と対）。`bin/app.ts` 配線、
-        Taskfile `build-front`・`synth` deps 更新、スナップショット（asset ハッシュ正規化）。
-        `task check` + `task synth` 緑。
-- [ ] 12. **origin-verify（CloudFront 経由限定化・B 採用）**: `bff.main` に `x-origin-verify` を
+        BucketDeployment。`bin/app.ts` 配線、Taskfile `build-front`・`front`・`synth`/`deploy` deps 更新、
+        スナップショット（asset ハッシュ 64hex を正規化・dist はテストでスタブ）。`task check` + `task synth` 緑。
+        ※ **origin-verify のヘッダ注入は step 12 で本 Function に追加**（BFF 側検証と原子的に入れるため
+        step 11 は Basic 認証のみ）。
+- [x] 12. **origin-verify（CloudFront 経由限定化・B 採用）**: `bff.main` に `x-origin-verify` を
         SSM SecureString（`/idash/<env>/origin-verify`、`common.ssm` でキャッシュ）と照合する依存を
         追加し、不一致/欠落は 403。`BffSettings` に `origin_verify_param` を追加、`IdashBffStack` は
         `ORIGIN_VERIFY_PARAM_ARN` を env で渡し当該 SSM param に `grantRead`。TestClient でヘッダ
         有無の 200/403、settings、スナップショット差分を確認。`task check` + `task synth` 緑。
-- [ ] 13. **ドキュメント**: ADR-0006（ダッシュボードのアクセス制御 = CF Functions Basic 認証 + KVS
+- [x] 13. **ドキュメント**: ADR-0006（ダッシュボードのアクセス制御 = CF Functions Basic 認証 + KVS
         ＋ origin-verify による CloudFront 経由限定化。**origin-verify の検証は BFF Lambda 内で行い
         Lambda Authorizer は不採用**の判断と根拠含む。背景3制約と代替案比較）— **初版は
         `docs/adr/0006-dashboard-access-control.md` に先行作成済み、実装確定後に最終化** / PROJECT_PLAN.md

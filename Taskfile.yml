@@ -1,8 +1,6 @@
 version: '3'
 
-# Phase 0 では「いま動くタスク」のみ実装する。
-# 将来タスク（gen-types / build-front / batch / bff / front）は
-# 該当アプリの実装が入る後続フェーズで有効化する（下部にコメントで雛形を残置）。
+# 横断タスクを go-task に集約する。個別言語ツールを直接叩く必要は基本ない。
 
 tasks:
   setup:
@@ -29,20 +27,40 @@ tasks:
       - uv run ruff format .
       - pnpm exec biome format --write .
 
+  gen-types:
+    desc: "Pydantic → OpenAPI → TS 型を生成（生成物は非コミット。frontend が import）"
+    cmds:
+      # export_openapi は bff.main を import して app.openapi() を出力するだけ（DB/env 不要）。
+      - uv run python -m bff.export_openapi > apps/frontend/openapi.json
+      # --filter で frontend ディレクトリ基準に実行（openapi.json / 出力先とも相対）。
+      - pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o src/api/generated/schema.d.ts
+
   typecheck:
     desc: "型チェック（Python: ty / TS: tsc）"
+    # frontend の tsc は生成型（schema.d.ts）に依存するため先に生成する（非コミットのため
+    # クリーン環境でも通す）。Python 側の ty は生成型に依存しないが、まとめて gen-types 後に走らせる。
+    deps: [gen-types]
     cmds:
       - uv run ty check
       - pnpm -r run typecheck
 
   test:
-    desc: "テスト（pytest + infra Vitest）"
+    desc: "テスト（pytest + infra/frontend Vitest）"
     cmds:
       - uv run pytest
       - pnpm --filter @idash/infra test
+      - pnpm --filter @idash/frontend test
+
+  build-front:
+    desc: "フロントエンドをビルド（生成型で tsc + vite build。IdashFrontendStack の dist 元）"
+    deps: [gen-types]
+    cmds:
+      - pnpm --filter @idash/frontend run build
 
   synth:
     desc: "CDK synth（CloudFormation テンプレート生成。AWS 認証不要）"
+    # IdashFrontendStack の Source.asset('apps/frontend/dist') が synth 時に dist を要求する。
+    deps: [build-front]
     cmds:
       - pnpm --filter @idash/infra exec cdk synth
 
@@ -54,8 +72,14 @@ tasks:
     cmds:
       - uv run uvicorn bff.main:app --reload --port 8000
 
+  front:
+    desc: "フロントエンドをローカル起動（vite dev。/api は task bff へプロキシ）"
+    cmds:
+      - pnpm --filter @idash/frontend exec vite
+
   deploy:
-    desc: "CDK デプロイ（要 AWS 認証。対象は現状 IdashBatchStack のみ）"
+    desc: "CDK デプロイ（要 AWS 認証。build-front 後に全スタックを配備）"
+    deps: [build-front]
     cmds:
       - pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
 
@@ -67,22 +91,3 @@ tasks:
       - pnpm exec biome ci .           # TS: Lint + フォーマット + import 整列 を一括検証（CI 専用コマンド）
       - task: typecheck
       - task: test
-
-  # --- 将来タスク（後続フェーズで有効化）-------------------------------------
-  # gen-types:        # Pydantic → OpenAPI → TS 型（Phase 3/4）
-  #   cmds:
-  #     - uv run python -m bff.export_openapi > openapi.json
-  #     - pnpm --filter @idash/frontend exec openapi-typescript openapi.json -o apps/frontend/src/api/generated/schema.d.ts
-  #
-  # build-front:      # フロントビルド（Phase 4）
-  #   deps: [gen-types]
-  #   cmds: [pnpm --filter @idash/frontend build]
-  #
-  # batch:            # ローカル実行（Phase 2）
-  #   cmds: [uv run python -m batch.main]
-  #
-  # bff:              # ローカル実行（Phase 3）
-  #   cmds: [uv run uvicorn bff.main:app --reload]
-  #
-  # front:            # ローカル実行（Phase 4）
-  #   cmds: [pnpm --filter @idash/frontend dev]

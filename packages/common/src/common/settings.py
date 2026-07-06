@@ -75,12 +75,14 @@ class NotifySettings:
 class BffSettings:
     """BFF（可視化 API）の実行に必要な環境変数。
 
-    データストア read（`data_location` の単一 Parquet）のみを要する。S3 アクセスは実行
-    ロール認証（静的キーなし）のため SSM 機密は不要で、収集/通知固有のパラメータも持たない。
+    データストア read（`data_location` の単一 Parquet）は実行ロール認証（静的キーなし）で
+    SSM 不要。`origin_verify_param` は CloudFront 経由限定化（ADR-0006）用の SSM SecureString
+    パラメータ名で、**未設定なら検証を行わない**（ローカル `task bff` / 未配線環境向け・任意）。
     """
 
     env_name: str
     data_location: str
+    origin_verify_param: str | None
 
     @classmethod
     def from_env(cls, env: Mapping[str, str] | None = None) -> BffSettings:
@@ -89,4 +91,6 @@ class BffSettings:
         return cls(
             env_name=_require(env, "ENV_NAME"),
             data_location=_require(env, "DATA_LOCATION"),
+            # 任意: 未設定（ローカル等）なら origin-verify 検証は無効。
+            origin_verify_param=env.get("ORIGIN_VERIFY_PARAM_ARN"),
         )

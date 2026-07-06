@@ -1,0 +1,42 @@
+@import "tailwindcss";
+
+/* データビズのカラーロール（検証済みリファレンスパレット）。ライト/ダートは同一ランプの別ステップ
+   で、prefers-color-scheme で1箇所だけ差し替える。Recharts へは var(--series-N) で渡す。
+   カテゴリ配色は固定順（エンティティに追従。順位で塗り替えない）。損益極性は status 色。 */
+:root {
+  --surface-1: #fcfcfb;
+  --text-1: #0b0b0b;
+  --text-2: #52514e;
+  --series-1: #2a78d6;
+  --series-2: #1baf7a;
+  --series-3: #eda100;
+  --series-4: #008300;
+  --series-5: #4a3aa7;
+  --series-6: #e34948;
+  --series-7: #e87ba4;
+  --series-8: #eb6834;
+  --series-muted: #9a9a92;
+  --status-good: #0ca30c;
+  --status-critical: #d03b3b;
+  --grid: #e7e6e1;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface-1: #1a1a19;
+    --text-1: #ffffff;
+    --text-2: #c3c2b7;
+    --series-1: #3987e5;
+    --series-2: #199e70;
+    --series-3: #c98500;
+    --series-4: #008300;
+    --series-5: #9085e9;
+    --series-6: #e66767;
+    --series-7: #d55181;
+    --series-8: #d95926;
+    --series-muted: #7a7a72;
+    --status-good: #0ca30c;
+    --status-critical: #d03b3b;
+    --grid: #34342f;
+  }
+}
