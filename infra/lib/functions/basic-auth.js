@@ -1,5 +1,8 @@
 // CloudFront Function（runtime JS 2.0）。両 behavior の viewer-request に適用する。
 //
+// 注意: JS 2.0 はバインディング省略の catch（`catch {`）非対応。しかもデプロイ時に検証されず
+// 実行時に SyntaxError → viewer へ 503 になるため、catch は必ず `catch (_e)` の形で書く。
+//
 // 1) Basic 認証: KVS の `basic-auth` キー（期待値 = `Basic <base64(user:pass)>` 全体）と
 //    Authorization ヘッダを照合。不一致/欠落/KVS 未投入なら 401（フェイルクローズ）。
 // 2) origin-verify（CloudFront 経由限定化・ADR-0006）: クライアント偽装を無効化するため
@@ -29,7 +32,7 @@ async function handler(event) {
   let expectedAuth;
   try {
     expectedAuth = await kvs.get('basic-auth');
-  } catch {
+  } catch (_e) {
     // KVS 未投入（キー無し）等は認証不能 → フェイルクローズで 401。
     return unauthorized();
   }
@@ -45,7 +48,7 @@ async function handler(event) {
     try {
       const secret = await kvs.get('origin-verify');
       request.headers['x-origin-verify'] = { value: secret };
-    } catch {
+    } catch (_e) {
       // origin-verify 未投入時はヘッダを付けない → BFF が 403（フェイルクローズ）。
     }
   }
