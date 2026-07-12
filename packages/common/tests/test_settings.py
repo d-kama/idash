@@ -62,6 +62,7 @@ def test_notify_from_env_missing_required_raises() -> None:
 BFF_ENV = {
     "ENV_NAME": "dev",
     "DATA_LOCATION": "s3://idash-dev-data/assets.parquet",
+    "ORIGIN_VERIFY_PARAM_ARN": "/idash/dev/origin-verify",
 }
 
 
@@ -70,14 +71,25 @@ def test_bff_from_env_reads_all_values() -> None:
 
     assert settings.env_name == "dev"
     assert settings.data_location == "s3://idash-dev-data/assets.parquet"
-    assert settings.origin_verify_param is None  # 未設定なら検証無効
+    assert settings.origin_verify_param == "/idash/dev/origin-verify"
 
 
-def test_bff_from_env_reads_optional_origin_verify() -> None:
-    env = {**BFF_ENV, "ORIGIN_VERIFY_PARAM_ARN": "/idash/dev/origin-verify"}
+def test_bff_from_env_missing_origin_verify_raises() -> None:
+    # fail-closed: 環境変数の欠落（infra の配線漏れ等）で検証が暗黙に無効化されてはならない。
+    incomplete = {k: v for k, v in BFF_ENV.items() if k != "ORIGIN_VERIFY_PARAM_ARN"}
+
+    with pytest.raises(KeyError, match="ORIGIN_VERIFY_PARAM_ARN"):
+        BffSettings.from_env(incomplete)
+
+
+def test_bff_from_env_explicit_disable_allows_none() -> None:
+    # ローカル（task bff 等）は ORIGIN_VERIFY_DISABLED=1 の明示 opt-out でのみ検証を無効化できる。
+    env = {k: v for k, v in BFF_ENV.items() if k != "ORIGIN_VERIFY_PARAM_ARN"}
+    env["ORIGIN_VERIFY_DISABLED"] = "1"
+
     settings = BffSettings.from_env(env)
 
-    assert settings.origin_verify_param == "/idash/dev/origin-verify"
+    assert settings.origin_verify_param is None
 
 
 def test_bff_from_env_missing_required_raises() -> None:
