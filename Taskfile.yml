@@ -69,6 +69,8 @@ tasks:
     env:
       ENV_NAME: local
       DATA_LOCATION: '{{.DATA_LOCATION | default "data/assets.parquet"}}'
+      # origin-verify は fail-closed（未設定はエラー）。ローカルは明示 opt-out で検証を無効化する。
+      ORIGIN_VERIFY_DISABLED: "1"
     cmds:
       - uv run uvicorn bff.main:app --reload --port 8000
 

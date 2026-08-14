@@ -154,6 +154,10 @@ aws cloudfront-keyvaluestore put-key --kvs-arn "$KVS_ARN" --if-match "$ETAG" \
 
 - **秘密ローテーション順は KVS → SSM**。先に SSM を変えると正規経路（CloudFront が旧値を注入）が
   一時的に 403 になる。
+- **ローテーション後は BFF Lambda のコンテナ入れ替えが必要**。BFF は SSM の期待値をコンテナ寿命
+  いっぱいキャッシュするため（コールドスタート時に1回だけ取得）、ウォームコンテナは旧値のまま
+  正規リクエストを 403 にし続ける。SSM 更新後に再デプロイするか
+  `aws lambda update-function-configuration` 等でコールドスタートを強制し、下記の確認まで行う。
 - 確認: CloudFront ドメイン（`aws cloudfront list-distributions` 等）を開き Basic 認証 → ダッシュボード
   表示。あわせて **API Gateway 直 URL への直叩きが 403**（origin-verify 欠落）になることを確認する。
 

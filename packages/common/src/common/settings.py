@@ -77,7 +77,8 @@ class BffSettings:
 
     データストア read（`data_location` の単一 Parquet）は実行ロール認証（静的キーなし）で
     SSM 不要。`origin_verify_param` は CloudFront 経由限定化（ADR-0006）用の SSM SecureString
-    パラメータ名で、**未設定なら検証を行わない**（ローカル `task bff` / 未配線環境向け・任意）。
+    パラメータ名。**fail-closed**: 未設定はエラーとし、検証を無効化するには
+    `ORIGIN_VERIFY_DISABLED=1` を明示する（ローカル `task bff` 等向け。このとき None）。
     """
 
     env_name: str
@@ -88,9 +89,16 @@ class BffSettings:
     def from_env(cls, env: Mapping[str, str] | None = None) -> BffSettings:
         """環境変数（既定で `os.environ`）から BffSettings を構築する。"""
         env = os.environ if env is None else env
+        # fail-closed: 環境変数の欠落（タイポ・infra の配線漏れ）で検証が暗黙にスキップされる
+        # ことを許さない。無効化はローカル向けの明示 opt-out のみ。
+        origin_verify_param = env.get("ORIGIN_VERIFY_PARAM_ARN")
+        if origin_verify_param is None and env.get("ORIGIN_VERIFY_DISABLED") != "1":
+            raise KeyError(
+                "必須の環境変数が未設定です: ORIGIN_VERIFY_PARAM_ARN"
+                "（origin-verify 検証を無効化する場合は ORIGIN_VERIFY_DISABLED=1 を明示する）"
+            )
         return cls(
             env_name=_require(env, "ENV_NAME"),
             data_location=_require(env, "DATA_LOCATION"),
-            # 任意: 未設定（ローカル等）なら origin-verify 検証は無効。
-            origin_verify_param=env.get("ORIGIN_VERIFY_PARAM_ARN"),
+            origin_verify_param=origin_verify_param,
         )

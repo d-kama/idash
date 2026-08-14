@@ -1,5 +1,5 @@
 import { App } from 'aws-cdk-lib';
-import { Template } from 'aws-cdk-lib/assertions';
+import { Match, Template } from 'aws-cdk-lib/assertions';
 import { describe, expect, it } from 'vitest';
 import { IdashBatchStack } from '../lib/batch-stack.js';
 import { IdashBffStack } from '../lib/bff-stack.js';
@@ -36,6 +36,18 @@ describe('IdashBffStack', () => {
   it('caps concurrency on the BFF function (cost guard)', () => {
     synth().hasResourceProperties('AWS::Lambda::Function', {
       ReservedConcurrentExecutions: 3,
+    });
+  });
+
+  it('wires ORIGIN_VERIFY_PARAM_ARN into the function environment (security guard)', () => {
+    // BFF は fail-closed（この env が無いと起動時エラー）だが、配線の欠落自体はスナップショット
+    // 差分にしか出ず test:update で黙って通りうるため、直接アサートで固定する。
+    synth().hasResourceProperties('AWS::Lambda::Function', {
+      Environment: {
+        Variables: Match.objectLike({
+          ORIGIN_VERIFY_PARAM_ARN: Match.anyValue(),
+        }),
+      },
     });
   });
 });

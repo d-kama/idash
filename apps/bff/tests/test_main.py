@@ -11,9 +11,10 @@ from collections.abc import Iterator
 from datetime import date
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from bff.main import app, get_origin_secret, get_use_case
+from bff.main import app, get_origin_secret, get_use_case, verify_origin
 from schemas.visualization import (
     AssetAmounts,
     ProductSnapshot,
@@ -129,3 +130,12 @@ def test_origin_verify_rejects_missing_header(verified_client: TestClient) -> No
 def test_origin_verify_rejects_wrong_header(verified_client: TestClient) -> None:
     res = verified_client.get("/api/visualization", headers={"x-origin-verify": "forged"})
     assert res.status_code == 403
+
+
+def test_origin_verify_rejects_non_ascii_header_with_403() -> None:
+    # HTTP ヘッダは latin-1 decode で非 ASCII の str が届きうる。str のまま compare_digest に
+    # 渡すと TypeError（未処理の 500）になるため、bytes 比較で 403 に落とすことを固定する。
+    with pytest.raises(HTTPException) as exc_info:
+        verify_origin(x_origin_verify="caf\xe9", expected=SECRET)
+
+    assert exc_info.value.status_code == 403

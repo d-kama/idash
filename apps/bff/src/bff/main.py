@@ -56,11 +56,12 @@ def get_use_case() -> GetVisualizationDataInputBoundary:
 
 @cache
 def get_origin_secret() -> str | None:
-    """origin-verify の期待値（SSM SecureString）を返す。未設定なら None（検証無効）。
+    """origin-verify の期待値（SSM SecureString）を返す。明示無効化時のみ None。
 
     CloudFront 経由限定化（ADR-0006）。CloudFront Function が正規リクエストにのみ注入する
-    `x-origin-verify` を照合する。ローカル `task bff` 等 `ORIGIN_VERIFY_PARAM_ARN` 未設定では
-    None を返し検証しない。コールドスタート時に1回だけ SSM を引く（`functools.cache`）。
+    `x-origin-verify` を照合する。fail-closed: `ORIGIN_VERIFY_PARAM_ARN` 未設定は設定読み込みが
+    エラーとなり、None（検証無効）になるのは `ORIGIN_VERIFY_DISABLED=1` の明示 opt-out
+    （ローカル `task bff` 等）のみ。コールドスタート時に1回だけ SSM を引く（`functools.cache`）。
     """
     settings = BffSettings.from_env()
     if settings.origin_verify_param is None:
@@ -74,13 +75,16 @@ def verify_origin(
 ) -> None:
     """CloudFront が注入する `x-origin-verify` を照合し、不一致/欠落なら 403。
 
-    `expected` が None（未配線/ローカル）なら検証しない。API Gateway を直叩きした相手は秘密値を
-    知らず弾かれる（CloudFront は迂回できない）。テストは get_origin_secret を override する。
+    `expected` が None（明示無効化されたローカル環境）なら検証しない。API Gateway を直叩きした
+    相手は秘密値を知らず弾かれる（CloudFront は迂回できない）。テストは get_origin_secret を
+    override する。
     """
     if expected is None:
         return
-    # 秘密値の比較はタイミング攻撃耐性のある定数時間比較で行う。
-    if x_origin_verify is None or not compare_digest(x_origin_verify, expected):
+    # 秘密値の比較はタイミング攻撃耐性のある定数時間比較で行う。bytes で比較するのは、
+    # str のまま非 ASCII（ヘッダは latin-1 decode で任意バイトが届く）を渡すと
+    # compare_digest が TypeError を投げ、403 が未処理の 500 になるため。
+    if x_origin_verify is None or not compare_digest(x_origin_verify.encode(), expected.encode()):
         raise HTTPException(status_code=403, detail="forbidden")
 
 
