@@ -200,7 +200,6 @@ idash/
 ├── tsconfig.base.json          # TS 共有設定
 ├── scripts/                    # 横断スクリプト（run_collect_local.py 等）
 ├── Taskfile.yml                # 横断タスク（go-task）
-├── docs/progress/              # 進捗管理ファイル（issue 単位）
 └── PROJECT_PLAN.md             # 本ドキュメント
 ```
 
@@ -388,7 +387,7 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
   - Docker ビルドキャッシュ（ルート context）は Dockerfile が出る **Phase 3** から
   - AWS Budgets / Cost Anomaly Detection は**不採用**（本プロジェクトでは入れない）
 
-### Phase 3: データ収集バッチ 実装〜デプロイ（コード完了 / issue-8・issue-8-concrete・issue-8-container）
+### Phase 3: データ収集バッチ 実装〜デプロイ（コード完了 / issue-8）
 > 関連 `packages`（collect 経路）＋ `apps/batch` collect ＋ Dockerfile ＋ コンテナ Lambda 化 ＋ デプロイまで。
 - [x] `domain`: 資産モデル（`Money` / `ProductAsset` / `PortfolioAsset` / `AssetTotal`）・収集ポート（`Scraper` / `ScraperSession`・`AssetRepository`・`Clock`）・`Credentials` / `ErrorPage`（`domain/asset.py` / `domain/collection.py` / `domain/clock.py`）
 - [ ] `schemas`: 収集経路では未使用（Phase 5 BFF で本格利用）。現状は空スタブ
@@ -402,8 +401,8 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [ ] 実デプロイ＆動作確認（ライブ依存: SSM 実値作成・実サイト接続検証）
 - [x] **確定**: 対象サイトへ Selenium ＋版ピン chrome でログイン → ポートフォリオ取得（ADR-0002 セッション方式 / ADR-0003 版ピン chrome）。認証情報は SSM SecureString `source-login`
 
-### Phase 4: サマリ通知バッチ 実装〜デプロイ（✅ 完了 / issue-16-domain・issue-16-concrete）
-> Sheets を介してのみ collect と連携（疎結合）。抽象層は issue-16-domain、具象＋コンテナは issue-16-concrete で実装。
+### Phase 4: サマリ通知バッチ 実装〜デプロイ（✅ 完了 / issue-16）
+> Sheets を介してのみ collect と連携（疎結合）。抽象層 → 具象＋コンテナ の順に分割して実装。
 - [x] `domain`: 集計ドメインサービス（`summarize` / `render_summary`、I/O 無し）
 - [x] `domain`: 通知ポート（`Notifier`）・サマリ値オブジェクト（`Summary` / `Notification`）
 - [x] `infrastructure`: 通知クライアント具象（`LineNotifier` = LINE Messaging API push / stdlib urllib）
@@ -425,9 +424,9 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [x] `apps/frontend`: Vite + React + TS 本実装（Recharts + Tailwind）、生成型 import、`fetch('/api/...')`
 - [x] `IdashFrontendStack`（S3 OAC + CloudFront 同一オリジン化 + Basic 認証(CF Function+KVS) + Geo 制限(JP) + origin-verify。**SPA フォールバックなし**）
 - [x] `bin/app.ts` でスタック間プロパティ受け渡し（API GW ドメイン → Frontend）、デプロイ順序（型生成 → フロントビルド → `cdk deploy --all`）
-- [x] **確定**: 画面構成・可視化内容（visualization-spec）/ **アクセス制御 = Basic 認証 + Geo(JP) + origin-verify（IP 制限は不採用・ADR-0006）**
+- [x] **確定**: 画面構成・可視化内容（確定内容は §8 アプリ仕様）/ **アクセス制御 = Basic 認証 + Geo(JP) + origin-verify（IP 制限は不採用・ADR-0006）**
 - [ ] 環境分離(dev/stg/prod) / 独自ドメイン・ACM は**スコープ外**（単一環境のまま）
-- [ ] 実デプロイ＆ E2E 確認（KVS/SSM 投入 → CloudFront で Basic 認証 → 描画確認。issue-27 step 14）
+- [ ] 実デプロイ＆ E2E 確認（KVS/SSM 投入 → CloudFront で Basic 認証 → 描画確認）
 
 ### 横断（全フェーズ共通の確定事項）
 - **Lambda は VPC に入れない**（NAT Gateway 課金回避。§10）。
@@ -448,14 +447,14 @@ pnpm --filter @idash/infra exec cdk deploy --require-approval never
 - [x] ~~外部サイトのログイン認証情報の管理方式~~ → **SSM SecureString `source-login`（`Credentials`=user_id/password/birthdate）**。多要素認証は対象サイト非対応の前提
 - [ ] 外部サイトの利用規約・自動アクセス可否の確認（運用前にユーザー側で確認）
 - [x] ~~サマリ通知の集計内容・サマリ項目~~ → **`summarize` で確定**（最新合計 / 損益率 / 期間の評価額・損益変化。`domain/notification.py`）
-- [x] ~~通知チャネル（メール/Slack/LINE 等）と認証情報管理~~ → **LINE Messaging API（push）／ SSM SecureString `notify-line`** に確定（issue-16-concrete）
-- [x] ~~集計対象日数 N の既定値・指定方法~~ → **env `NOTIFY_DAYS` 既定7・event `days` で上書き** に確定（issue-16-concrete）
-- [x] ~~収集頻度・通知頻度・各スケジュール時刻（JST）~~ → **収集=平日 JST 09:00 ／ 通知=日曜 JST 09:00** に確定（issue-16-concrete）
+- [x] ~~通知チャネル（メール/Slack/LINE 等）と認証情報管理~~ → **LINE Messaging API（push）／ SSM SecureString `notify-line`** に確定（Phase 4）
+- [x] ~~集計対象日数 N の既定値・指定方法~~ → **env `NOTIFY_DAYS` 既定7・event `days` で上書き** に確定（Phase 4）
+- [x] ~~収集頻度・通知頻度・各スケジュール時刻（JST）~~ → **収集=平日 JST 09:00 ／ 通知=日曜 JST 09:00** に確定（Phase 4）
 - [x] ~~共有コンポーネントの packages 配置~~ → **`infrastructure`（scraper / sheets / notifier / error_store / clock の具象）に確定**。集計は `domain` のドメインサービス
 
 ### アプリ仕様
-- [ ] BFF が公開するエンドポイント一覧とレスポンススキーマ … **可視化要件は確定**（`docs/progress/visualization-spec.md`）。供給するデータ形は「series（基準日×商品の時系列）＋ latest summary（`summarize` 相当）」。エンドポイント分割（単一 `/visualization` or series/summary 分割）と Parquet 直読み vs JSON キャッシュ層（§9）は実装時に確定
-- [x] ~~フロントの画面構成・可視化内容（指標、グラフ種別、期間軸など）~~ → **確定**（`docs/progress/visualization-spec.md`）: 最新ポートフォリオ=ヒーロー＋構成バー（拠出土台＋損益積み上げ）／テーブル=商品毎の日別推移（指標トグル: 評価額・損益・拠出）／グラフ=折れ線（商品毎 multi-series ＋ ポートフォリオ全体は評価額＋拠出ライン）／期間セレクタあり（1M/3M/6M/1Y/全期間）
+- [ ] BFF が公開するエンドポイント一覧とレスポンススキーマ … **可視化要件は確定**（下記）。供給するデータ形は「series（基準日×商品の時系列）＋ latest summary（`summarize` 相当）」。エンドポイント分割（単一 `/visualization` or series/summary 分割）と Parquet 直読み vs JSON キャッシュ層（§9）は実装時に確定
+- [x] ~~フロントの画面構成・可視化内容（指標、グラフ種別、期間軸など）~~ → **確定**: 最新ポートフォリオ=ヒーロー＋構成バー（拠出土台＋損益積み上げ）／テーブル=商品毎の日別推移（指標トグル: 評価額・損益・拠出）／グラフ=折れ線（商品毎 multi-series ＋ ポートフォリオ全体は評価額＋拠出ライン）／期間セレクタあり（1M/3M/6M/1Y/全期間）
 - [ ] 認証・認可の要否（アプリ利用者のログイン有無）… **未検討**
 
 ### インフラ・運用
@@ -636,10 +635,10 @@ export class IdashBffStack extends Stack {
 
 同一イメージから収集/通知の2関数を `cmd` 違いで生成し、スケジュールを個別に設定。
 
-> **Phase 1（issue-2）での差分**（下記は Phase 3/4 完了時の最終形。現フェーズの権威ある仕様は `docs/progress/issue-2.md`）:
+> **Phase 1（issue-2）での差分**（下記は Phase 3/4 完了時の最終形）:
 > - Lambda は **プレースホルダ zip**（`lambda.Function` + `Code.fromInline` / `Runtime.PYTHON_3_13`）。`DockerImageFunction` への差替は **Phase 3**。
 > - 実装は **collect のみ**（notify は Phase 4）。collect は memory **1024** / timeout **5分** / 予約同時実行 **1**。
-> - 収集スケジュールは **平日のみ（Mon–Fri）JST 09:00**（土日は更新されず・メンテ多いため日次から縮退。issue-16-concrete で確定）。
+> - 収集スケジュールは **平日のみ（Mon–Fri）JST 09:00**（土日は更新されず・メンテ多いため日次から縮退。Phase 4 で確定）。
 > - SSM は `fromSecureStringParameterAttributes` でインポート→`grantRead`→環境変数に **ARN**（`SHEETS_SA_PARAM_ARN` 等）。`kms:Decrypt` の明示付与は不要（`aws/ssm`）。
 > - 明示 `LogGroup`（保持 **7日** + `RemovalPolicy.DESTROY`）。
 

@@ -5,9 +5,9 @@ CloudFront Functions による Basic 認証 + Geo 制限(JP) で保護する。�
 の直接アクセスは、S3 は OAC、API Gateway は **origin-verify 共有シークレット**で塞ぎ、
 その検証は **BFF Lambda 内（FastAPI 依存）で行う（Lambda Authorizer は使わない）**。
 
-本 ADR は方式決定の記録。実装は Phase 6（`docs/progress/issue-27.md` step 11/12）で完了済み
+本 ADR は方式決定の記録。実装は Phase 6 で完了済み
 （`infra/lib/frontend-stack.ts` / `infra/lib/functions/basic-auth.js` / `apps/bff/src/bff/main.py`）。
-KVS・SSM への秘密値投入とデプロイ後 E2E 確認は step 14（実デプロイ）で行う。
+KVS・SSM への秘密値投入とデプロイ後 E2E 確認は実デプロイ時に行う。
 
 ## Context
 

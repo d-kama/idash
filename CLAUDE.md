@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 idash は iDeCo（個人型確定拠出年金）の運用状況を定期収集・蓄積し、可視化＋サマリ通知する個人利用/学習用システム。Python（batch / bff / 共有ライブラリ）と TypeScript（frontend / infra）が混在する **polyglot モノレポ**で、Python 側は **uv ワークスペース**、TypeScript 側は **pnpm ワークスペース**を並置している。
 
-実装は段階的に進行中。Phase 0（初期化）/ 1（infra 足場）/ 2（CI/CD）/ 4（サマリ通知バッチ）が完了済み（**通知=LINE push は実デプロイ＆動作確認まで完了**）。Phase 3（データ収集バッチ）はコードレベル完了で実デプロイ＆動作確認のみ残（収集=Selenium スクレイピング・コンテナ Lambda 化済み）。Phase 5（BFF）/ 6（フロントエンド）は未着手で、**`packages/schemas` と `apps/bff` の `src` は現状ほぼ空スタブ**（schemas は Phase 5 で本格利用）。設計の全体像は `PROJECT_PLAN.md`、進行中作業は `docs/progress/issue-*.md` を参照。
+実装は段階的に進行中。Phase 0（初期化）/ 1（infra 足場）/ 2（CI/CD）/ 4（サマリ通知バッチ）が完了済み（**通知=LINE push は実デプロイ＆動作確認まで完了**）。Phase 3（データ収集バッチ）はコードレベル完了で実デプロイ＆動作確認のみ残（収集=Selenium スクレイピング・コンテナ Lambda 化済み）。Phase 5（BFF）/ 6（フロントエンド）は未着手で、**`packages/schemas` と `apps/bff` の `src` は現状ほぼ空スタブ**（schemas は Phase 5 で本格利用）。設計の全体像は `PROJECT_PLAN.md` を参照。
 
 ## ツールチェーン
 
@@ -94,5 +94,4 @@ infrastructure        application（+ schemas に依存）
 
 - **`CONTEXT.md`** — ドメイン用語集（ユビキタス言語）。`ProductAsset` / `PortfolioAsset` / `Money` / `Scraper` / `AssetRepository` などの語彙と _Avoid_（使わない曖昧語）を定義。ドメインのコード/会話はこの語彙に従う。
 - **`docs/adr/*.md`** — アーキテクチャ決定記録（例: 0001 CI/CD OIDC、0002 Scraper をコンテキストマネージャ方式のセッションとする）。
-- **`docs/progress/issue-*.md`** — issue 単位の進捗・設計合意・決定事項。**作業再開時はまず該当ファイルの「設計（グリル合意）」「決定事項」を確認**してから着手する。
 - **`PROJECT_PLAN.md`** — フェーズ別の実装計画と確定/未決事項の全体像。
