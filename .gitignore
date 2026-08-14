@@ -33,6 +33,11 @@ apps/frontend/src/api/generated/
 # task bff のローカル BFF が read する Parquet（個人資産データを含み得るため追跡しない）
 /data/
 
+# ---- ローカル専用ドキュメント ----
+# issue 単位の作業ノート（設計合意・決定事項・ステップ進捗）。書き換えが激しく
+# リポジトリの成果物ではないため、ローカル保持のみで追跡しない
+/docs/progress/
+
 # ---- CDK ----
 cdk.out/
 *.cdk.staging/
