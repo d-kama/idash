@@ -55,8 +55,8 @@
   `handler_collect.py` からは指定しない）。CDK スナップショットは Docker イメージの
   ダイジェスト差分のみ追随更新する。
 - 過去の progress ファイル（`issue-8-concrete.md` 等）の記述更新。当時の記録として残す。
-- `CollectionUseCase` がセッション確立時（ログイン・プラン選択）の失敗もエラーページ保存
-  対象に含める改修（既知の穴。→「未確定事項・リスク」）。
+- `CollectionUseCase` が**ログイン失敗**もエラーページ保存対象に含める改修
+  （プラン選択失敗は `scrape()` へ移したことで保存対象になった。→「未確定事項・リスク」）。
 
 ## 実装ステップ
 
@@ -71,9 +71,11 @@
       `click()` → `#btnSubmit` を `click()`」のみ。`find_elements` によるテキスト走査と
       「転出処理中」判定・祖先 tr 辿りは削除し、なぜ1行目固定でよいか（1行目が収集対象の
       スリムコース、2行目は転出済）をコメントに残す。失敗時は握り潰さず `ScraperError` に
-      包んで送出する（Selenium 例外を上位層へ漏らさない）。証跡ページは載せない。
+      包んで送出する（Selenium 例外を上位層へ漏らさない）。
       - レビュー反映: 当初 `input[type='radio']` だったセレクタを `name='checkedPlanIdx'` に
         変更（別画面が挟まったときに無関係な選択肢を押す事故を防ぐ）。
+      - 方針変更（ステップ7）で実行場所とともに証跡ページの扱いも変わった。最終形は
+        「`content=_safe_page_source(...)` を添えて送出」。
 - [x] 3. `test_scraper.py` を更新する。
       - `FakeWebDriver._plan_cells`（異動状況セル列）と `find_elements` のプラン分岐を削除し、
         `find_element` が `name='checkedPlanIdx'` で引かれたときに `plan-radio` を記録する
@@ -88,9 +90,9 @@
           `test_plan_selection_skipped_when_disabled`（`select_plan` の2行分岐のため）、
           `TestExtractPortfolio::test_sets_base_date`（`test_maps_each_product` の
           `PortfolioAsset` 全体比較に含まれ重複）。
-        - 残す: 正常系 / ログイン確立前の失敗 / 確立後・yield 前の失敗（プラン選択）/
-          yield 後の失敗（scrape、`ScraperError.content` の証跡契約）/ quit 失敗が主例外を
-          隠さないこと（ADR-0002・PR#10 の決定を守る唯一のテスト）。
+        - 残す: 正常系 / ログイン失敗 / プラン選択失敗 / 抽出失敗（`ScraperError.content` の
+          証跡契約）/ quit 失敗が主例外を隠さないこと（ADR-0002・PR#10 の決定を守る唯一のテスト）。
+          後半3つはステップ7の方針変更後、いずれも `scrape()` 内の失敗になった。
       - `task test` がグリーンであることを確認する。
 - [x] 4. **実サイトでの動作確認**（`scripts/run_collect_local.py`）。別ターミナルで
       `docker run --rm -p 4444:4444 -p 7900:7900 selenium/standalone-chrome:4.27.0` を起動し、
@@ -108,7 +110,19 @@
 - [x] 5. 本ファイルに検証結果・レビュー対応を追記し、ステータスを「完了」にする。
       過去の progress ファイル（`issue-8-concrete.md` 等）は**当時の記録として修正しない**。
 - [x] 6. `task check` を通し、`git-workflow` スキルで `fix/scraper-plan-selection` から
-      コミット・PR を作成する。
+      コミット・PR を作成する（→ PR #40）。
+- [x] 7. **方針変更（2026-08-14・ユーザー）: プラン選択を `ScraperSession` 側へ移す**。
+      - `_select_plan` を `SeleniumScraper` から `_SeleniumScraperSession` へ移し、
+        `scrape()` の冒頭（`#mainMenu01` クリックの前）で呼ぶ。`select_plan` フラグは
+        `SeleniumScraper.session()` から `_SeleniumScraperSession(..., select_plan=...)` へ渡す。
+      - `_open_and_login` から確立後ステップ用の `except BaseException: logout → raise` を削除
+        （確立後・yield 前に失敗するステップが無くなったため）。
+      - 移動によりプラン選択失敗が `CollectionUseCase` の捕捉範囲に入り証跡保存が可能になったため、
+        「ページ保存は不要」の決定を撤回し `content=_safe_page_source(...)` を添える。
+      - テストは `test_post_login_failure_logs_out_then_closes` を
+        `test_plan_selection_failure_logs_out_then_closes` に置き換え（失敗が `with` の内側で
+        起きる形へ）、`content` の検証も戻す。
+      - 実サイトで正常系・失敗時の証跡保存を再検証（→「追加検証」）。
 
 ## 決定事項
 
@@ -143,10 +157,10 @@
   - ｅＭＡＸＩＳ Ｓｌｉｍ 先進国債券インデックス（除く日本）: contribution=1,983 / valuation=1,949 / profit_loss=-34
   - ｅＭＡＸＩＳ Ｓｌｉｍ 米国株式（Ｓ＆Ｐ５００）: contribution=2,358,262 / valuation=2,396,061 / profit_loss=37,799
   - いずれも eMAXIS Slim シリーズ＝**スリムコース（1行目）側の資産**であることを確認（転出済の標準コースではない）。
-- 補足: 一連の検証の**初回のみ**ログイン成功判定（「ログアウト」リンク）に失敗した。直後の
-  手動ダンプではログイン後ページ（＝プラン選択画面）に「ログアウト」リンクが存在し検出もでき、
-  以降 4 回の実行では再現しなかった。standalone-chrome 起動直後のコールドスタート由来と判断し、
-  本変更とは無関係として扱う（再発したら実 Lambda 側のログで再確認する）。
+- 補足: 一連の検証の**初回のみ**ログイン成功判定（「ログアウト」リンク）に失敗した。当初は
+  コンテナのコールドスタート由来と見ていたが、後の検証で同じ症状のページを確認したところ
+  「現在、同じユーザーIDで利用されています…(990003)」のログイン画面だった（→「検証中に判明した
+  既存の挙動」）。残存セッションが原因で、次の実行では回復する。
 
 ### 追加検証（プラン選択を scrape() へ移した後）
 
@@ -177,14 +191,13 @@
 - **将来プラン選択画面が消えた場合**は `ScraperError` で収集が失敗する（合意済みの挙動）。
   その時点で `select_plan=False`（＝コード変更＋再デプロイ）か、ステップごと削除する。
   env/SSM からは切り替えられない（切替は稀な想定のため配線していない）。
-- **ログイン／プラン選択の失敗ではエラーページが S3 に残らない**（既知の穴）。
-  `CollectionUseCase.execute` はセッション確立後の `scrape()` 失敗のみ `ErrorPageStore` に保存し、
-  `with` の `__enter__`（＝ログイン・プラン選択）で送出された `ScraperError` は捕捉しない
-  （issue-8 での明示的な決定）。
-  **決定（2026-08-14・ユーザー）**: プラン選択失敗時のページ保存は不要とし、ログに出る例外
-  メッセージ（`プラン選択に失敗しました: <Selenium のメッセージ>`）で足りるものとする。
-  よって `_select_plan` は `ScraperError` に `content` を載せない。application 層で確立時失敗も
-  証跡保存する改修は行わない。
+- **ログイン失敗ではエラーページが S3 に残らない**（既知の穴・本変更の対象外）。
+  `CollectionUseCase.execute` は `with` の内側（`scrape()`）の `ScraperError` のみ
+  `ErrorPageStore` に保存し、`__enter__`（＝ログイン）で送出されたものは捕捉しない
+  （issue-8 での明示的な決定）。プラン選択は `scrape()` へ移したため保存されるようになったが、
+  ログイン失敗は依然 CloudWatch のログのみ。残したければ application 層の改修が別途必要。
+- **プラン選択失敗は次回実行にも波及しうる**（→「検証中に判明した既存の挙動」）。
+  失敗後の logout が効かずサーバ側セッションが残るため、直後の再実行は 990003 で弾かれる。
 
 ## 参照リンク
 
@@ -194,3 +207,4 @@
 - `docs/progress/issue-8-concrete.md`（当時の設計合意・決定事項。過渡ステップの経緯。本変更では更新しない）
 - `docs/adr/0002-*.md`（Scraper はコンテキストマネージャ方式のセッション。後始末契約）
 - `CONTEXT.md`（`Scraper` / `PortfolioAsset` の語彙）
+- PR: https://github.com/d-kama/idash/pull/40
