@@ -78,9 +78,9 @@ class ScraperConfig:
     chrome_binary_location: str
     chrome_driver_path: str
     implicit_wait: int = 10
-    # 移行期間中のみ必要な「転出処理中」プラン選択ステップ。
-    # TODO: プラン移行完了後に削除する。
-    select_transferring_plan: bool = True
+    # プラン選択画面で1行目のプランを選ぶステップを踏むか
+    # （詳細は _SeleniumScraperSession._select_plan）。
+    select_plan: bool = True
 
 
 def _default_chrome_factory(config: ScraperConfig) -> WebDriver:
@@ -127,12 +127,15 @@ def _format_birthdate(birthdate: date) -> str:
 class _SeleniumScraperSession:
     """ログイン済みドライバを用いて資産ページを取得する ScraperSession 具象。"""
 
-    def __init__(self, driver: WebDriver, clock: Clock) -> None:
+    def __init__(self, driver: WebDriver, clock: Clock, *, select_plan: bool = True) -> None:
         self._driver = driver
         self._clock = clock
+        self._should_select_plan = select_plan
 
     def scrape(self) -> PortfolioAsset:
         try:
+            if self._should_select_plan:
+                self._select_plan()
             self._driver.find_element(By.ID, "mainMenu01").click()
             self._driver.find_element(By.CLASS_NAME, "total")  # 読み込み完了の確認
             html = self._driver.page_source
@@ -144,6 +147,23 @@ class _SeleniumScraperSession:
             # （取得自体が不能なら content=None）。主例外は隠さない。
             raise ScraperError(
                 f"資産情報の取得・抽出に失敗しました: {error}",
+                content=_safe_page_source(self._driver),
+            ) from error
+
+    def _select_plan(self) -> None:
+        """旧プランから新プランへの移行に伴い、表示されるプラン選択画面
+        移行処理完了済の為、新プラン (1行目) を選択する
+        プラン移行画面が表示されなくなった場合は、本実装も削除する
+        """
+        try:
+            radio = self._driver.find_element(
+                By.CSS_SELECTOR, "table.inputTable tbody input[name='checkedPlanIdx']"
+            )
+            radio.click()
+            self._driver.find_element(By.ID, "btnSubmit").click()
+        except Exception as error:
+            raise ScraperError(
+                f"プラン選択に失敗しました: {error}",
                 content=_safe_page_source(self._driver),
             ) from error
 
@@ -179,7 +199,7 @@ class SeleniumScraper:
             self._safe_quit(driver)
             raise
         try:
-            yield _SeleniumScraperSession(driver, self._clock)
+            yield _SeleniumScraperSession(driver, self._clock, select_plan=self._config.select_plan)
         finally:
             self._logout_quietly(driver)
             self._safe_quit(driver)
@@ -203,15 +223,6 @@ class SeleniumScraper:
         driver.find_element(By.ID, "btnLogin").click()
         if not self._is_logged_in(driver):
             raise ScraperError("ログインに失敗しました（ログアウトリンクが見つかりません）")
-        # ここでサーバ側セッション確立済み。以降の過渡ステップが失敗してもセッションを
-        # 残さないよう logout を試みてから送出する（残存セッションでの再ログイン不能を防ぐ）。
-        # 確立前の失敗はセッションが無いので logout 不要（session() 側で close のみ）。
-        try:
-            if self._config.select_transferring_plan:
-                self._select_transferring_out_plan(driver)
-        except BaseException:
-            self._logout_quietly(driver)
-            raise
 
     @staticmethod
     def _is_logged_in(driver: WebDriver) -> bool:
@@ -220,29 +231,6 @@ class SeleniumScraper:
         except NoSuchElementException:
             return False
         return True
-
-    @staticmethod
-    def _select_transferring_out_plan(driver: WebDriver) -> None:
-        # 移行期間中のみ必要な過渡ステップ。TODO: プラン移行完了後に削除する。
-        # プラン選択テーブルの「異動状況」セル（td[data-lang='jp']）が「転出処理中」の
-        # 行を選び「決定」する。
-        #
-        # 行（tr）を総なめして行内 find_element(td) を呼ぶと、見出し行（th のみで td を
-        # 持たない）で NoSuchElementException になる。そこで行ではなくデータセルを直接
-        # 走査し、該当セルから祖先 tr を辿って同じ行のラジオを押す（見出し行は td を持た
-        # ないため走査対象に現れない）。
-        #
-        # ログイン直後はテーブルが描画途中のことがあるため、セルが1つでも描画済みになる
-        # のを marker として待ってから走査する（_SeleniumScraperSession.scrape() の「読み
-        # 込み完了の確認」と同じ implicit_wait ベースのイディオム）。
-        cell_selector = "table.inputTable tbody td[data-lang='jp']"
-        driver.find_element(By.CSS_SELECTOR, cell_selector)  # 描画完了の marker 待ち
-        for cell in driver.find_elements(By.CSS_SELECTOR, cell_selector):
-            if "転出処理中" in cell.text:
-                row = cell.find_element(By.XPATH, "./ancestor::tr[1]")
-                row.find_element(By.CSS_SELECTOR, "input[type='radio']").click()
-                driver.find_element(By.ID, "btnSubmit").click()
-                return
 
     @staticmethod
     def _logout_quietly(driver: WebDriver) -> None:

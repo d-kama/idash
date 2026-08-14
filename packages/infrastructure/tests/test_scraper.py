@@ -54,11 +54,6 @@ class TestExtractPortfolio:
             ),
         )
 
-    def test_sets_base_date(self) -> None:
-        portfolio = extract_portfolio(FIXTURE, base_date=date(2026, 1, 5))
-
-        assert portfolio.base_date == date(2026, 1, 5)
-
 
 # --- SeleniumScraper のセッション後始末契約（ADR-0002）用のフィクスチャ群 ---
 URL = "https://dc.example/login"
@@ -79,22 +74,10 @@ class FixedClock:
 
 
 class _FakeElement:
-    """send_keys/click/find_element を最小実装する擬似 WebElement。
+    """send_keys/click を最小実装する擬似 WebElement。"""
 
-    find_element はセル → 祖先 tr → ラジオのチェーンを表すため、設定された子要素
-    `child` を返す（無ければ素の要素）。
-    """
-
-    def __init__(
-        self,
-        *,
-        on_click=None,
-        text: str = "",
-        child: _FakeElement | None = None,
-    ) -> None:
+    def __init__(self, *, on_click=None) -> None:
         self._on_click = on_click
-        self.text = text
-        self._child = child
 
     def send_keys(self, *_args: object) -> None:
         pass
@@ -102,9 +85,6 @@ class _FakeElement:
     def click(self) -> None:
         if self._on_click is not None:
             self._on_click()
-
-    def find_element(self, by: str, value: str) -> _FakeElement:
-        return self._child if self._child is not None else _FakeElement()
 
 
 class FakeWebDriver:
@@ -119,14 +99,12 @@ class FakeWebDriver:
         html: str,
         login_succeeds: bool = True,
         has_plan: bool = True,
-        plan_raises: bool = False,
         quit_raises: bool = False,
     ) -> None:
         self.events: list[str] = []
         self._html = html
         self._login_succeeds = login_succeeds
         self._has_plan = has_plan
-        self._plan_raises = plan_raises
         self._quit_raises = quit_raises
 
     def get(self, _url: str) -> None:
@@ -137,9 +115,13 @@ class FakeWebDriver:
         return self._html
 
     def find_element(self, by: str, value: str) -> _FakeElement:
-        if "inputTable" in value and self._plan_raises:
-            # ログイン成立後のプラン選択ステップ（セル描画待ち）が失敗する状況を再現する。
-            raise NoSuchElementException("プラン選択セルが見つかりません")
+        if "checkedPlanIdx" in value:
+            # プラン選択テーブルのラジオ。プラン選択画面と分かる name で引かれること
+            # （汎用の inputTable だけで引かないこと）をこの分岐で担保する。
+            # has_plan=False でプラン選択画面が出ない（＝見つからない）状況を再現する。
+            if not self._has_plan:
+                raise NoSuchElementException("プラン選択のラジオが見つかりません")
+            return _FakeElement(on_click=lambda: self.events.append("plan-radio"))
         if by == By.ID and value == "btnLogin":
             return _FakeElement(on_click=lambda: self.events.append("login"))
         if by == By.ID and value == "btnSubmit":
@@ -149,27 +131,6 @@ class FakeWebDriver:
                 raise NoSuchElementException("ログアウト リンクが見つかりません")
             return _FakeElement(on_click=lambda: self.events.append("logout"))
         return _FakeElement()
-
-    def find_elements(self, by: str, value: str) -> list[_FakeElement]:
-        if "inputTable" in value:
-            # 「異動状況」データセル列。見出し行は th のみで td を持たないため、本物の
-            # td セレクタには現れない（＝走査対象から外れる）ことを模す。
-            return self._plan_cells() if self._has_plan else []
-        return []
-
-    def _plan_cells(self) -> list[_FakeElement]:
-        # 「転出処理中」の行のラジオを選んで「決定」する。転入処理中の行は選ばない。
-        # 各セルは find_element(祖先 tr) → find_element(ラジオ) のチェーンで辿られる。
-        out_row = _FakeElement(
-            child=_FakeElement(on_click=lambda: self.events.append("plan-radio"))
-        )
-        in_row = _FakeElement(
-            child=_FakeElement(on_click=lambda: self.events.append("plan-radio-wrong"))
-        )
-        return [
-            _FakeElement(text="転入処理中", child=in_row),
-            _FakeElement(text="転出処理中", child=out_row),
-        ]
 
     def quit(self) -> None:
         if self._quit_raises:
@@ -183,13 +144,20 @@ def _scraper(driver: FakeWebDriver, config: ScraperConfig = CONFIG) -> SeleniumS
     )
 
 
+def _in_order(events: list[str], *expected: str) -> bool:
+    """events に expected がこの順で（連続でなくてよい）現れるか。"""
+    remaining = iter(events)
+    return all(event in remaining for event in expected)
+
+
 class TestSessionLifecycle:
     """SeleniumScraper のセッション後始末契約（ADR-0002）を FakeWebDriver で検証する。
 
     検証するのは後始末の保証であり、各操作の網羅的な発生順ではない:
-      - 正常終了 / スクレイピング失敗 → logout → close（この順）で後始末される
-      - ログイン確立前の失敗 → logout は呼ばれず close のみ
-      - ログイン確立後の失敗（プラン選択など）→ logout → close で後始末される
+      - 正常終了（ログイン → scrape（プラン選択 → 抽出））→ logout → close の順で後始末される
+      - ログイン失敗（yield 前）→ logout は呼ばれず close のみ
+      - scrape 中のプラン選択失敗 → logout → close ＋ 失敗時点のページを ScraperError に添える
+      - scrape 中の抽出失敗 → logout → close ＋ 失敗時点のページを ScraperError に添える
       - 後始末（quit）失敗は主例外（ScraperError）を隠さない
     """
 
@@ -199,22 +167,9 @@ class TestSessionLifecycle:
         with _scraper(driver).session(URL, CREDENTIALS) as session:
             asset = session.scrape()
 
-        assert driver.events[-2:] == ["logout", "close"]
+        assert _in_order(driver.events, "login", "plan-radio", "plan", "logout", "close")
         assert len(asset.products) == 2
         assert asset.base_date == date(2026, 6, 18)  # clock の JST 日付
-
-    def test_plan_selection_selects_transfer_out_row(self) -> None:
-        # プラン選択テーブルに見出し行（th のみ）が混じっても、データセル（td[data-lang='jp']）
-        # を直接走査して「転出処理中」の行のラジオを選ぶ。見出し行は td を持たず走査に現れない
-        # ため、行を総なめして td を引いていた頃の NoSuchElementException は起きない。
-        driver = FakeWebDriver(html=FIXTURE)
-
-        with _scraper(driver).session(URL, CREDENTIALS) as session:
-            session.scrape()
-
-        # 転出行のラジオ → 決定（btnSubmit=plan）の順で押し、転入行は選ばない。
-        assert "plan-radio-wrong" not in driver.events
-        assert driver.events.index("plan-radio") < driver.events.index("plan")
 
     def test_login_failure_closes_without_logout(self) -> None:
         driver = FakeWebDriver(html=FIXTURE, login_succeeds=False)
@@ -226,15 +181,14 @@ class TestSessionLifecycle:
         assert "logout" not in driver.events
         assert driver.events[-1] == "close"
 
-    def test_post_login_failure_logs_out_then_closes(self) -> None:
-        # ログインは成立（サーバ側セッション確立）したが、その後の過渡ステップ（プラン選択）で
-        # 失敗するケース。残存セッションでの再ログイン不能を防ぐため logout→close する（ADR-0002）。
-        driver = FakeWebDriver(html=FIXTURE, plan_raises=True)
+    def test_plan_selection_failure_logs_out_then_closes(self) -> None:
+        driver = FakeWebDriver(html=FIXTURE, has_plan=False)
 
-        with pytest.raises(NoSuchElementException):
-            with _scraper(driver).session(URL, CREDENTIALS):
-                pass  # __enter__ 内の確立後ステップ失敗で到達しない
+        with _scraper(driver).session(URL, CREDENTIALS) as session:
+            with pytest.raises(ScraperError) as exc_info:
+                session.scrape()
 
+        assert exc_info.value.content == FIXTURE
         assert driver.events[-2:] == ["logout", "close"]
 
     def test_scrape_failure_logs_out_then_closes_with_page_source(self) -> None:
