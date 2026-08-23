@@ -130,6 +130,36 @@ task deploy
 #   task build-front && pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
 ```
 
+#### 事前: bootstrap ECR のライフサイクル（IaC 外・手動・要注意）
+
+Lambda はすべてコンテナイメージ関数（batch / bff の **2 アセット**）で、イメージは CDK bootstrap が
+作る共有 ECR リポジトリ `cdk-hnb659fds-container-assets-<ACCOUNT_ID>-ap-northeast-1` に入る。
+**この ECR のライフサイクルポリシーは本リポジトリの IaC 管理外**なので、AWS 側で以下を守ること。
+
+- **`tagStatus: any` の少数保持（例: `imageCountMoreThan: 1`）を設定しない。** Lambda はデプロイ時に
+  解決した **digest** を掴み続けるため、稼働中の関数が参照するイメージが消えると、アイドル後の
+  restore に失敗して `Failed to restore the function ...: The function is trying to use a deleted image.`
+  となり `Inactive` / `ImageDeleted` のまま起動できなくなる。
+- 保持数は **アセット 2 種 × 2 世代 = 4 が下限**。2 では bff だけ更新したデプロイで
+  `[batch, bff_old, bff_new]` の 3 個になり、古い順に消される＝稼働中の batch イメージが飛ぶ。
+  4 個保持でも計 3GB 程度＝月 $0.3 前後にとどまる。
+
+```bash
+aws ecr put-lifecycle-policy --region ap-northeast-1 \
+  --repository-name cdk-hnb659fds-container-assets-<ACCOUNT_ID>-ap-northeast-1 \
+  --lifecycle-policy-text '{"rules":[{"rulePriority":1,"description":"keep 2 assets x 2 generations","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":4},"action":{"type":"expire"}}]}'
+```
+
+イメージを消してしまった場合の復旧は **①ライフサイクルを直す → ②`task deploy` でイメージを再 push →
+③各関数にタグを再解決させる**（下記）の順。**②だけでは直らない**: アセットハッシュ＝タグが同じだと
+CloudFormation に差分が出ず関数が更新されないため、消えた digest を掴んだままになる。
+
+```bash
+# ③ 同じ ImageUri を指定して再解決させる（CFn ドリフトは発生しない）
+URI=$(aws lambda get-function --function-name <FN> --query Code.ImageUri --output text)
+aws lambda update-function-code --function-name <FN> --image-uri "$URI"
+```
+
 #### デプロイ後: ダッシュボードのアクセス制御（CloudFront KVS・IaC 外・手動）
 
 `IdashFrontendStack` は CloudFront Function + `KeyValueStore` を作るが、**秘密値は投入しない**
