@@ -52,7 +52,8 @@ FROM public.ecr.aws/lambda/python:3.13
 
 # Chrome(headless-shell) が要求する共有ライブラリ群。dnf で導入する
 # （chrome バイナリそのものは CfT 版ピンを使い、共有ライブラリのみ OS から供給）。
-RUN dnf install -y \
+RUN dnf upgrade -y ca-certificates && \
+      dnf install -y \
       nss \
       nss-util \
       nspr \
@@ -78,6 +79,15 @@ RUN dnf install -y \
       dbus-libs && \
     dnf clean all && \
     rm -rf /var/cache/dnf
+
+# eMudhra中間CA漏洩対策: AL2023にパッチが出るまで emSign ECC Root CA - G3 を除外
+# パッチ適用後(dnf upgrade ca-certificates で版が上がったら)この RUN は削除可
+# ref: https://emudhra.we-have-a-problem.com/
+RUN d=/etc/pki/ca-trust/source/blocklist && mkdir -p $d && \
+    trust extract --overwrite --format=pem-bundle \
+        --filter='pkcs11:object=emSign%20ECC%20Root%20CA%20-%20G3;type=cert' \
+        $d/emSign_ECC_Root_CA_-_G3.pem && \
+    update-ca-trust
 
 # CfT chrome / chromedriver を stage 1 から取り込む（handler 既定パスに配置）。
 COPY --from=chrome /opt/chrome /opt/chrome
