@@ -1,6 +1,6 @@
 """データ収集バッチの Lambda ハンドラ（composition root）。
 
-環境変数と SSM SecureString(2本) から設定を読み、具象アダプタ
+環境変数と SSM SecureString(source-login) から設定を読み、具象アダプタ
 （SeleniumScraper / DuckDbAssetRepository / S3ErrorPageStore / SystemClock）を構築して
 CollectionUseCase に DI し、収集を実行する。具象は SSM を知らない（ここで注入する）。
 データストアは DuckDB + S3 単一 Parquet（`DATA_LOCATION`、実行ロール認証）。
@@ -12,13 +12,12 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from datetime import date
 from typing import Any
 
 from application.collection import CollectionInputBoundary, CollectionUseCase
 from common import ssm
 from common.logging import get_logger
-from common.settings import CollectSettings
+from common.settings import CollectSettings, SourceLogin
 from domain.collection import Credentials
 from infrastructure.clock import SystemClock
 from infrastructure.duckdb_store import DuckDbAssetRepository, DuckDbConfig
@@ -38,19 +37,19 @@ _DUCKDB_MEMORY_LIMIT = "512MB"  # データは微小。スピル併用で OOM �
 
 # (settings, source) -> (use_case, url, credentials)
 UseCaseFactory = Callable[
-    [CollectSettings, dict[str, Any]],
+    [CollectSettings, SourceLogin],
     "tuple[CollectionInputBoundary, str, Credentials]",
 ]
 
 
 def build_use_case(
     settings: CollectSettings,
-    source: dict[str, Any],
+    source: SourceLogin,
 ) -> tuple[CollectionUseCase, str, Credentials]:
-    """SSM 復号 JSON / env から具象を組み立て、CollectionUseCase と実行引数を返す。"""
+    """型付き設定から具象を組み立て、CollectionUseCase と実行引数を返す。"""
     scraper = SeleniumScraper(
         ScraperConfig(
-            user_agent=source["user_agent"],
+            user_agent=source.user_agent,
             chrome_binary_location=os.environ.get("CHROME_BINARY_LOCATION", _DEFAULT_CHROME_BINARY),
             chrome_driver_path=os.environ.get("CHROME_DRIVER_PATH", _DEFAULT_CHROME_DRIVER),
         )
@@ -67,11 +66,11 @@ def build_use_case(
     use_case = CollectionUseCase(scraper, repository, error_store, SystemClock())
 
     credentials = Credentials(
-        user_id=source["user_id"],
-        password=source["password"],
-        birthdate=date.fromisoformat(source["birthdate"]),
+        user_id=source.user_id,
+        password=source.password,
+        birthdate=source.birthdate,
     )
-    return use_case, source["start_url"], credentials
+    return use_case, source.start_url, credentials
 
 
 def handler(
@@ -82,7 +81,7 @@ def handler(
 ) -> dict[str, Any]:
     """EventBridge から起動される収集エントリポイント。"""
     settings = CollectSettings.from_env()
-    source = ssm.get_secure_json(settings.source_login_param)
+    source = SourceLogin.from_mapping(ssm.get_secure_json(settings.source_login_param))
 
     use_case, url, credentials = use_case_factory(settings, source)
     asset = use_case.execute(url, credentials)

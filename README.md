@@ -117,6 +117,13 @@ pnpm --filter @idash/infra test
 >   --name /idash/dev/origin-verify --value "$(openssl rand -hex 32)"
 > ```
 
+バッチ用の SecureString は JSON オブジェクトとし、全フィールドを文字列で指定する。
+`source-login` は `user_id` / `password` / `birthdate`（`date.fromisoformat` で解釈可能な日付）/
+`start_url` / `user_agent`、`notify-line` は `channel_access_token` / `to` を必須とする。
+handler が SSM 取得直後に `SourceLogin` / `NotifyLine` へ変換し、キー欠落・型不正・不正日付は
+具象アダプタの組み立て前に例外にする（余分なキーは無視）。認証情報・通知先は repr から除外するが、
+属性や `dataclasses.asdict()` からは取得できるため、これらの値をログに出さないこと。
+
 ```bash
 # 1) 再認証（有効な AWS 認証情報を用意）
 aws login   # またはプロファイルを利用
