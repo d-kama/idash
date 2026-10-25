@@ -20,7 +20,7 @@ from typing import Any
 from application.notification import NotifySummaryInputBoundary, NotifySummaryUseCase
 from common import ssm
 from common.logging import get_logger
-from common.settings import NotifySettings
+from common.settings import NotifyLine, NotifySettings
 from infrastructure.clock import SystemClock
 from infrastructure.duckdb_store import DuckDbAssetRepository, DuckDbConfig
 from infrastructure.notifier import LineConfig, LineNotifier
@@ -34,16 +34,16 @@ _DUCKDB_MEMORY_LIMIT = "256MB"  # notify は軽量（read のみ）。スピル�
 
 # (settings, line_cfg) -> use_case
 UseCaseFactory = Callable[
-    [NotifySettings, dict[str, Any]],
+    [NotifySettings, NotifyLine],
     NotifySummaryInputBoundary,
 ]
 
 
 def build_use_case(
     settings: NotifySettings,
-    line_cfg: dict[str, Any],
+    line_cfg: NotifyLine,
 ) -> NotifySummaryUseCase:
-    """SSM 復号 JSON / env から具象を組み立て、NotifySummaryUseCase を返す。"""
+    """型付き設定から具象を組み立て、NotifySummaryUseCase を返す。"""
     repository = DuckDbAssetRepository(
         DuckDbConfig(
             location=settings.data_location,
@@ -54,8 +54,8 @@ def build_use_case(
     )
     notifier = LineNotifier(
         LineConfig(
-            channel_access_token=line_cfg["channel_access_token"],
-            to=line_cfg["to"],
+            channel_access_token=line_cfg.channel_access_token,
+            to=line_cfg.to,
         )
     )
     return NotifySummaryUseCase(repository, notifier, SystemClock())
@@ -69,7 +69,7 @@ def handler(
 ) -> dict[str, Any]:
     """EventBridge から起動されるサマリ通知エントリポイント。"""
     settings = NotifySettings.from_env()
-    line_cfg = ssm.get_secure_json(settings.notify_line_param)
+    line_cfg = NotifyLine.from_mapping(ssm.get_secure_json(settings.notify_line_param))
 
     # 集計対象日数は event 優先・既定は env（NOTIFY_DAYS / 既定7）。`or` ではなく None 判定で、
     # 明示された days=0 / 負値を既定値へ握り潰さず use case の検証（days>=1）へ素通しする。

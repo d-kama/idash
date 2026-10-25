@@ -13,7 +13,9 @@ from moto import mock_aws
 
 from application.notification import NotifySummaryUseCase
 from batch import handler_notify
+from common.settings import NotifyLine, NotifySettings
 from domain.notification import Notification
+from infrastructure.notifier import LineConfig, LineNotifier
 
 NOTIFY_PARAM = "/idash/dev/notify-line"
 
@@ -56,17 +58,38 @@ def test_handler_uses_env_days_and_returns_ok(monkeypatch) -> None:
     fake = _FakeUseCase(NOTIFICATION)
     captured: dict[str, object] = {}
 
-    def factory(settings, line_cfg):
+    def factory(settings: NotifySettings, line_cfg: NotifyLine) -> _FakeUseCase:
         captured["line_cfg"] = line_cfg
         return fake
 
     result = handler_notify.handler({}, None, use_case_factory=factory)
 
-    # SSM 復号 JSON が wiring に渡っている。
-    assert captured["line_cfg"] == NOTIFY_JSON
+    assert isinstance(captured["line_cfg"], NotifyLine)
+    assert captured["line_cfg"] == NotifyLine.from_mapping(NOTIFY_JSON)
     # event に days 無し → env 既定7で execute。
     assert fake.calls == [7]
     assert result == {"status": "ok", "days": 7, "subject": "iDeCo 運用サマリ"}
+
+
+@pytest.mark.parametrize(
+    ("line_cfg", "error_type"),
+    [
+        ({"to": NOTIFY_JSON["to"]}, KeyError),
+        ({**NOTIFY_JSON, "channel_access_token": None}, TypeError),
+    ],
+)
+@mock_aws
+def test_handler_validates_line_before_calling_factory(monkeypatch, line_cfg, error_type) -> None:
+    for key, value in ENV.items():
+        monkeypatch.setenv(key, value)
+    client = boto3.client("ssm", region_name="ap-northeast-1")
+    client.put_parameter(Name=NOTIFY_PARAM, Value=json.dumps(line_cfg), Type="SecureString")
+
+    def factory(*_):
+        pytest.fail("invalid notification config must not reach the factory")
+
+    with pytest.raises(error_type, match="channel_access_token"):
+        handler_notify.handler({}, None, use_case_factory=factory)
 
 
 @mock_aws
@@ -132,7 +155,15 @@ def test_build_use_case_wires_concrete_adapters(monkeypatch) -> None:
         monkeypatch.setenv(key, value)
 
     settings = handler_notify.NotifySettings.from_env()
+    captured: list[LineConfig] = []
 
-    use_case = handler_notify.build_use_case(settings, NOTIFY_JSON)
+    def notifier_factory(config: LineConfig) -> LineNotifier:
+        captured.append(config)
+        return LineNotifier(config)
+
+    monkeypatch.setattr(handler_notify, "LineNotifier", notifier_factory)
+
+    use_case = handler_notify.build_use_case(settings, NotifyLine.from_mapping(NOTIFY_JSON))
 
     assert isinstance(use_case, NotifySummaryUseCase)
+    assert captured == [LineConfig(channel_access_token="token-abc", to="Uxxxxxxxx")]
