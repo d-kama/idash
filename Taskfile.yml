@@ -77,6 +77,15 @@ tasks:
     cmds:
       - pnpm --filter @idash/frontend exec vite
 
+  verify:chrome-tls:
+    desc: "本番 batch イメージで Chrome の CA 遮断を検証（外部ネットワーク必須・CI 対象外）"
+    cmds:
+      - docker build --platform linux/amd64 -f apps/batch/Dockerfile -t idash-batch:chrome-tls {{.CLI_ARGS}} .
+      - >-
+        docker run --rm --platform linux/amd64
+        --entrypoint /var/task/.venv/bin/python
+        idash-batch:chrome-tls apps/batch/scripts/verify_chrome_distrust.py
+
   deploy:
     desc: "CDK デプロイ（要 AWS 認証。build-front 後に全スタックを配備）"
     deps: [build-front]

@@ -24,9 +24,10 @@
 # ---------------------------------------------------------------------------
 FROM public.ecr.aws/lambda/python:3.13 AS chrome
 
-# CfT のピン版。直近 stable を選定（chrome-headless-shell と chromedriver は
-# 同一ビルド番号で一致させる＝ADR-0003 の版ピン）。
-# TODO: 実サイト検証・実デプロイ時に直近 stable へ調整可。
+# CfT のピン版（chrome-headless-shell と chromedriver は同一ビルド番号にする）。
+# #47: da63b94c（侵害された中間CAの SPKI 遮断）と 8793082f（Root Store v43）の
+# 両修正を含む Stable の確認待ち。131 は未対策なので、収集の自動実行は再開しない。
+# 版上げ後も task verify:chrome-tls とデプロイ後の手動収集が成功するまで停止を維持する。
 # 版一覧: https://googlechromelabs.github.io/chrome-for-testing/
 ARG CFT_VERSION=131.0.6778.108
 
@@ -81,6 +82,7 @@ RUN dnf upgrade -y ca-certificates && \
     rm -rf /var/cache/dnf
 
 # eMudhra中間CA漏洩対策: AL2023にパッチが出るまで emSign ECC Root CA - G3 を除外
+# Python・OS 向けの対策。独自の Chrome Root Store を使う Chrome には効かない。
 # パッチ適用後(dnf upgrade ca-certificates で版が上がったら)この RUN は削除可
 # ref: https://emudhra.we-have-a-problem.com/
 RUN d=/etc/pki/ca-trust/source/blocklist && mkdir -p $d && \
