@@ -1,7 +1,8 @@
 """scraper.py のテスト。
 
-scraper.py の 2 つの検証対象を、対象ごとにクラスで分けて検証する:
+scraper.py の検証対象:
   - TestExtractPortfolio : 純粋関数 extract_portfolio（fixture HTML → PortfolioAsset）
+  - test_default_chrome_factory : headless-shell の起動設定
   - TestSessionLifecycle : SeleniumScraper.session() の後始末契約（ADR-0002、FakeWebDriver）
 """
 
@@ -11,10 +12,12 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
 from typing import cast
+from unittest.mock import Mock
 from zoneinfo import ZoneInfo
 
 import pytest
 from selenium.common.exceptions import NoSuchElementException
+from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webdriver import WebDriver
 
@@ -23,6 +26,7 @@ from domain.collection import Credentials, ScraperError
 from infrastructure.scraper import (
     ScraperConfig,
     SeleniumScraper,
+    _default_chrome_factory,
     extract_portfolio,
 )
 
@@ -63,6 +67,30 @@ CONFIG = ScraperConfig(
     chrome_binary_location="/opt/chrome/chrome",
     chrome_driver_path="/opt/chromedriver/chromedriver",
 )
+
+
+def test_default_chrome_factory(monkeypatch, tmp_path) -> None:
+    from selenium import webdriver
+
+    driver = Mock(spec=WebDriver)
+    constructor = Mock(return_value=driver)
+    monkeypatch.setattr(webdriver, "Chrome", constructor)
+    monkeypatch.setattr(
+        "infrastructure.scraper.tempfile.mkdtemp", lambda: str(tmp_path / "profile")
+    )
+
+    assert _default_chrome_factory(CONFIG) is driver
+
+    options = constructor.call_args.kwargs["options"]
+    assert isinstance(options, Options)
+    assert options.capabilities["browserName"] == "chrome-headless-shell"
+    assert not options.capabilities.get("acceptInsecureCerts", False)
+    assert not any(arg.startswith("--ignore-certificate-errors") for arg in options.arguments)
+    assert options.binary_location == CONFIG.chrome_binary_location
+    assert f"--user-agent={CONFIG.user_agent}" in options.arguments
+    assert f"--user-data-dir={tmp_path / 'profile'}" in options.arguments
+    assert constructor.call_args.kwargs["service"].path == CONFIG.chrome_driver_path
+    driver.implicitly_wait.assert_called_once_with(CONFIG.implicit_wait)
 
 
 @dataclass

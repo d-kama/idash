@@ -28,46 +28,24 @@ chromium headless-shell ＋ chromedriver をイメージに同梱（版ピン留
 - 採用している headless-shell は component updater を持たず、毎回新規の `user-data-dir`
   で起動する。CRLSet や Root Store の配信更新は受け取れないため、CA の失効・不信頼は
   **対応を組み込んだバイナリへの版上げ・再ビルド・再デプロイ**で反映する。
-- eMudhra 対応（[#47](https://github.com/d-kama/idash/issues/47)）は
-  `da63b94c`（侵害された中間 CA の SPKI 遮断）と `8793082f`（Root Store v43）の
-  **両方を含む CfT Stable** を選定する。main の commit position や公開予定日だけで判断せず、
-  対象 Stable タグでの取り込み（バックポートの場合はマージ CL）を確認する。
-  linux64 の headless-shell と chromedriver が同一版で提供されることも確認する。
-
-### 手動 TLS 検証（CI 対象外）
-
-リポジトリルートで `task verify:chrome-tls` を実行する。Docker と外部ネットワークが必要。
-本番の batch イメージをビルドし、`_default_chrome_factory` の起動オプションと新規プロファイルを
-そのまま使う。検証先は公開テストホストのみで、SSM や年金サイトの認証情報は使わない。
-
-- `dv-g3b-emudhra.we-have-a-problem.com`（emSign 経路）と
-  `dv-g3b-aaa-emudhra.we-have-a-problem.com`（AAA 相互署名経路）は証明書エラーで遮断されること。
-- 陽性対照 `letsencrypt.org` は HTTPS で開くこと。
-- Selenium の `net::ERR_CERT_*` を証明書拒否と判定する。headless-shell は空の
-  `chrome-error://` ページを例外なしで返す場合があるため、その場合は CDP の
-  `Page.navigate` で再検証し、`errorText` が `net::ERR_CERT_*` であることを確認する。
-  エラーページであることだけでは成功としない。DNS 失敗・タイムアウト・一般的な接続エラーは
-  遮断成功とはせず、判定不能として非ゼロ終了する。各ホストの結果と Chrome の版を出力し、
-  全条件を満たした場合だけ 0 終了する。
-
-旧版の判定確認や候補版の検証では Docker の build 引数を渡せる（Dockerfile のピンは変わらない）。
-131 で対象ホストが開く場合は検証の **失敗（非ゼロ終了）** が期待値であり、安全確認ではない。
-
-```bash
-task verify:chrome-tls -- --build-arg CFT_VERSION=131.0.6778.108
-task verify:chrome-tls -- --build-arg CFT_VERSION=<candidate-version>
-```
-
-ローカルに同一版のバイナリを配置済みなら、コンテナをビルドせず検証スクリプトを直接実行できる。
-
-```bash
-CHROME_BINARY_LOCATION=/path/to/chrome-headless-shell \
-CHROME_DRIVER_PATH=/path/to/chromedriver \
-uv run python apps/batch/scripts/verify_chrome_distrust.py
-```
-
-版上げ時は実行イメージ内の `ldd /opt/chrome/chrome` に `not found` が無いことを確認し、
-必要なら dnf の共有ライブラリ依存を追加する。infra のスナップショットは
-`pnpm --filter @idash/infra run test:update` で更新する。
-**両経路の拒否・陽性対照の成功、`task check`、デプロイ後の収集 Lambda 手動実行成功**が
-揃うまで、停止中の収集バッチの自動実行を再開しない。
+- eMudhra 対応（[#47](https://github.com/d-kama/idash/issues/47)）では
+  侵害された中間 CA 鍵の SPKI 遮断を含む CfT Stable `156.0.8078.73` を採用する。
+  `da63b94c` のバックポート
+  [`3d1980a8`](https://github.com/chromium/chromium/commit/3d1980a8550c3cf594059ed3a974310b3a325c36)
+  が対象タグに含まれることを確認済み。これは信頼するルートにつながるチェーンも拒否する
+  **組み込みの鍵のブロックリスト**であり、配信更新に依存しない。
+- Root Store v43（`8793082f`）による emSign ECC Root CA - G3 の信頼解除は別の変更。
+  採用版の Root Store は v40 だが、今回の侵害鍵の遮断に v43 の取り込みは必須としない。
+  これは eMudhra のルート全体を不信頼にする方針への変更ではない。
+- 以後の版上げも main の commit position や公開予定日だけで判断せず、対象 Stable タグでの
+  修正の取り込み（バックポートの場合はマージ CL）と、linux64 の headless-shell /
+  chromedriver が同一版で提供されることを確認する。
+- ChromeDriver には `browserName=chrome-headless-shell` を明示する。新規プロファイルでの
+  初期タブ生成に必要で、通常の `chrome` として起動すると採用版では
+  `unable to discover open pages` でセッション確立に失敗する。
+- 変更後の実行イメージで共有ライブラリの不足が無いこと、対象証明書の拒否と正常な HTTPS
+  接続の成功を確認する。DNS 失敗・タイムアウト・一般的な接続エラーは遮断成功とはしない。
+  一時的な検証スクリプトはバージョン管理せず、結果・再現手順・未確認項目を PR コメントに
+  記録する。認証情報や機密ログは含めない。
+- TLS 検証、`task check`、デプロイ後の収集 Lambda 手動実行成功を確認するまで、
+  停止中の収集バッチの自動実行を再開しない。

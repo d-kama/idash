@@ -25,11 +25,12 @@
 FROM public.ecr.aws/lambda/python:3.13 AS chrome
 
 # CfT のピン版（chrome-headless-shell と chromedriver は同一ビルド番号にする）。
-# #47: da63b94c（侵害された中間CAの SPKI 遮断）と 8793082f（Root Store v43）の
-# 両修正を含む Stable の確認待ち。131 は未対策なので、収集の自動実行は再開しない。
-# 版上げ後も task verify:chrome-tls とデプロイ後の手動収集が成功するまで停止を維持する。
+# eMudhra の侵害された中間CA鍵を組み込みで遮断する修正が必要（#47）。
+# da63b94c の M156 バックポート 3d1980a8 を含むことを確認した版に固定する。
+# headless-shell は配信更新を受け取らないため、未修正の 131 へ戻さない。
+# TLS の拒否・正常通信とデプロイ後の手動収集を確認するまで自動実行は再開しない。
 # 版一覧: https://googlechromelabs.github.io/chrome-for-testing/
-ARG CFT_VERSION=131.0.6778.108
+ARG CFT_VERSION=156.0.8078.73
 
 RUN dnf install -y unzip && \
     curl -fsSL -o /tmp/chrome-headless-shell.zip \

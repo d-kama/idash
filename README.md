@@ -69,7 +69,6 @@ task setup     # 依存解決（uv sync && pnpm install）
 | `task build-front` | フロントエンドをビルド（gen-types 依存。IdashFrontendStack の dist 元） |
 | `task bff` | BFF をローカル起動（uvicorn。既定でローカル Parquet `data/assets.parquet` を read） |
 | `task front` | フロントエンドをローカル起動（vite dev。`/api` を `task bff` へプロキシ） |
-| `task verify:chrome-tls` | 本番 batch イメージで CA 遮断と陽性対照を手動検証（Docker・外部ネットワーク必須、CI 対象外。[運用手順](docs/adr/0003-selenium-pinned-chrome-on-lambda.md#手動-tls-検証ci-対象外)） |
 | `task deploy` | CDK デプロイ（build-front 依存。要 AWS 認証） |
 
 > `task setup` 直後は生成型（`schema.d.ts`）が無いため frontend の IDE 型エラーが出る。
