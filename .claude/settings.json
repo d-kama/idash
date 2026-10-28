@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./secrets/**)",
+      "Read(./config/credentials.json)",
+      "Read(./*.local.json)",
+      "Read(./cdk.out/**)",
+      "Read(./build)",
+      "Bash(curl *)"
+    ],
+    "defaultMode": "auto"
+  },
+  "plansDirectory": "./docs/plans"
+}
