@@ -24,11 +24,13 @@
 # ---------------------------------------------------------------------------
 FROM public.ecr.aws/lambda/python:3.13 AS chrome
 
-# CfT のピン版。直近 stable を選定（chrome-headless-shell と chromedriver は
-# 同一ビルド番号で一致させる＝ADR-0003 の版ピン）。
-# TODO: 実サイト検証・実デプロイ時に直近 stable へ調整可。
+# CfT のピン版（chrome-headless-shell と chromedriver は同一ビルド番号にする）。
+# eMudhra の侵害された中間CA鍵を組み込みで遮断する修正が必要（#47）。
+# da63b94c の M156 バックポート 3d1980a8 を含むことを確認した版に固定する。
+# headless-shell は配信更新を受け取らないため、未修正の 131 へ戻さない。
+# TLS の拒否・正常通信とデプロイ後の手動収集を確認するまで自動実行は再開しない。
 # 版一覧: https://googlechromelabs.github.io/chrome-for-testing/
-ARG CFT_VERSION=131.0.6778.108
+ARG CFT_VERSION=156.0.8078.73
 
 RUN dnf install -y unzip && \
     curl -fsSL -o /tmp/chrome-headless-shell.zip \
@@ -81,6 +83,7 @@ RUN dnf upgrade -y ca-certificates && \
     rm -rf /var/cache/dnf
 
 # eMudhra中間CA漏洩対策: AL2023にパッチが出るまで emSign ECC Root CA - G3 を除外
+# Python・OS 向けの対策。独自の Chrome Root Store を使う Chrome には効かない。
 # パッチ適用後(dnf upgrade ca-certificates で版が上がったら)この RUN は削除可
 # ref: https://emudhra.we-have-a-problem.com/
 RUN d=/etc/pki/ca-trust/source/blocklist && mkdir -p $d && \

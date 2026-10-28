@@ -94,6 +94,8 @@ def _default_chrome_factory(config: ScraperConfig) -> WebDriver:
     from selenium.webdriver.chrome.service import Service
 
     options = Options()
+    # 新規プロファイルでも初期タブが作られるよう headless-shell として明示する。
+    options.set_capability("browserName", "chrome-headless-shell")
     for argument in (
         "--headless=new",
         "--disable-gpu",
