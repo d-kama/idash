@@ -129,7 +129,7 @@ class BffSettings:
 
     データストア read（`data_location` の単一 Parquet）は実行ロール認証（静的キーなし）で
     SSM 不要。`origin_verify_param` は CloudFront 経由限定化（ADR-0006）用の SSM SecureString
-    パラメータ名で、**未設定なら検証を行わない**（ローカル `task bff` / 未配線環境向け・任意）。
+    パラメータ名で、**未設定なら検証を行わない**（ローカル `just bff` / 未配線環境向け・任意）。
     """
 
     env_name: str

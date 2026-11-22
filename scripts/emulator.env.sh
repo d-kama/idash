@@ -1,5 +1,5 @@
 # AWS Emulator へ SDK / CLI / DuckDB を向ける環境変数。`source scripts/emulator.env.sh` で読み込む。
-# `task emulator:up` の後に使う。認証情報とCAは起動ごとに ~/.aws/emulator/<port>/ へ生成される。
+# `just emulator-up` の後に使う。認証情報とCAは起動ごとに ~/.aws/emulator/<port>/ へ生成される。
 
 _emu_port="${EMULATOR_PORT:-9297}"
 _emu_dir="$HOME/.aws/emulator/${_emu_port}"

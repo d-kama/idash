@@ -7,7 +7,7 @@ FROM public.ecr.aws/amazonlinux/amazonlinux:2023-minimal
 # 版は GitHub releases のタグ（v1.0.564）と同じ MAJOR.MINOR.PATCH を指定する。
 # 罠: LTS/versions.json は `1.0.564.1` と4区切りで載るが、rpm の URL に4区切りを入れると 403 になる。
 ARG EMULATOR_VERSION=1.0.564
-# rpm は arch 別（x86_64 / aarch64）。Taskfile が `uname -m` から決めて渡す。
+# rpm は arch 別（x86_64 / aarch64）。justfile が `uname -m` から決めて渡す。
 ARG RPM_ARCH=aarch64
 
 ADD https://downloads.aws.com/aws-emulator/packages/aws-emulator/LTS/aws-emulator-${EMULATOR_VERSION}-1-${RPM_ARCH}.rpm /tmp/aws-emulator.rpm

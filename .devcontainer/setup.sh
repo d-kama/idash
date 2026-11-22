@@ -15,7 +15,7 @@ eval "$(mise activate bash)"
 # devcontainer の postCreate は非対話（TTY 無し）で走る。pnpm はホスト側で作られた
 # node_modules との構成差を検知すると再作成のため削除確認を求めるが、TTY 無しだと
 # ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY で中断する。CI=true で確認をスキップさせる。
-CI=true task setup
+CI=true just setup
 
 # git が SSH 形式の URL を HTTPS にリダイレクトするよう設定
 git config --global --add url."https://github.com/".insteadOf "git@github.com:"
