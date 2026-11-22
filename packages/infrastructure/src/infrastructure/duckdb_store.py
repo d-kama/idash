@@ -39,12 +39,38 @@ class DuckDbConfig:
     extension_directory は httpfs/aws 拡張の所在。Lambda ではビルド時に固定ディレクトリへ
     事前 INSTALL した拡張を実行時 LOAD だけで使うため、その同一ディレクトリを handler が
     渡す（HOME 差異による解決失敗を避ける）。None なら DuckDB 既定（`~/.duckdb`）。
+
+    s3_endpoint / s3_url_style / ca_cert_file は S3 互換エミュレータへ向けるための上書きで、
+    本番では使わない（統合テスト用）。None なら従来どおり実 AWS 向けに接続する。
+    `credential_chain` は `AWS_ENDPOINT_URL` を読まないため、エミュレータへ向けるには
+    s3_endpoint の明示が必須（省くと実 AWS 宛てになる）。
+    - s3_endpoint: `host:port` 形式でスキームを含めない（例 `127.0.0.1:9297`）
+    - s3_url_style: `path` など。IP エンドポイントではパス形式が必要
+    - ca_cert_file: 自己署名 CA の PEM。DuckDB には `AWS_CA_BUNDLE` が効かないためここで渡す
     """
 
     location: str
     memory_limit: str | None = None
     temp_directory: str | None = None
     extension_directory: str | None = None
+    s3_endpoint: str | None = None
+    s3_url_style: str | None = None
+    ca_cert_file: str | None = None
+
+
+def build_s3_secret_sql(config: DuckDbConfig) -> str:
+    """S3 用 `CREATE SECRET` の SQL を組み立てる。上書き未設定なら従来と同一の SQL になる。"""
+    options = ["TYPE s3", "PROVIDER credential_chain"]
+    if config.s3_endpoint is not None:
+        options.append(f"ENDPOINT {_sql_literal(config.s3_endpoint)}")
+    if config.s3_url_style is not None:
+        options.append(f"URL_STYLE {_sql_literal(config.s3_url_style)}")
+    return f"CREATE SECRET ({', '.join(options)})"
+
+
+def _sql_literal(value: str) -> str:
+    # 単一引用符は二重化してエスケープする。
+    return "'" + value.replace("'", "''") + "'"
 
 
 class DuckDbAssetRepository:
@@ -68,7 +94,9 @@ class DuckDbAssetRepository:
             # 事前同梱済み拡張を LOAD のみ（ネット DL なし）。credential_chain は aws 拡張が提供。
             con.execute("LOAD httpfs")
             con.execute("LOAD aws")
-            con.execute("CREATE SECRET (TYPE s3, PROVIDER credential_chain)")
+            if self._config.ca_cert_file is not None:
+                con.execute(f"SET ca_cert_file = {_sql_literal(self._config.ca_cert_file)}")
+            con.execute(build_s3_secret_sql(self._config))
         return con
 
     def _exists(self, con: duckdb.DuckDBPyConnection) -> bool:
@@ -94,8 +122,7 @@ class DuckDbAssetRepository:
     @property
     def _quoted_location(self) -> str:
         # 自前 config 値を SQL リテラルへ。単一引用符は二重化してエスケープする。
-        escaped = self._config.location.replace("'", "''")
-        return f"'{escaped}'"
+        return _sql_literal(self._config.location)
 
     def save(self, asset: PortfolioAsset) -> None:
         con = self._connect()

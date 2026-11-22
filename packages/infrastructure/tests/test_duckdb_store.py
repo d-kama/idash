@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from domain.asset import Money, PortfolioAsset, ProductAsset
-from infrastructure.duckdb_store import DuckDbAssetRepository, DuckDbConfig
+from infrastructure.duckdb_store import DuckDbAssetRepository, DuckDbConfig, build_s3_secret_sql
 
 ASSET = PortfolioAsset(
     base_date=date(2026, 6, 18),
@@ -233,3 +233,21 @@ def test_session_settings_applied_and_round_trip(tmp_path: Path) -> None:
     repo.save(ASSET)
 
     assert repo.find_by_date_range(date(2026, 6, 18), date(2026, 6, 18)) == [ASSET]
+
+
+def test_s3_secret_sql_is_unchanged_without_overrides() -> None:
+    # 上書き未設定なら本番と同じ SQL（R5）。
+    sql = build_s3_secret_sql(DuckDbConfig(location="s3://b/k.parquet"))
+
+    assert sql == "CREATE SECRET (TYPE s3, PROVIDER credential_chain)"
+
+
+def test_s3_secret_sql_includes_endpoint_and_url_style() -> None:
+    config = DuckDbConfig(
+        location="s3://b/k.parquet", s3_endpoint="127.0.0.1:9297", s3_url_style="path"
+    )
+
+    assert build_s3_secret_sql(config) == (
+        "CREATE SECRET (TYPE s3, PROVIDER credential_chain, "
+        "ENDPOINT '127.0.0.1:9297', URL_STYLE 'path')"
+    )
