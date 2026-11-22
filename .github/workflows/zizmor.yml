@@ -1,0 +1,33 @@
+name: zizmor
+
+# GitHub Actions のワークフロー定義を静的解析する。Dependabot の action 更新 PR では、
+# 新しい SHA が本家の正規コミットか（impostor-commit）、コメントのタグと一致するか
+# （ref-version-mismatch）、既知の脆弱性がないか（known-vulnerable-actions）を自動判定する。
+# paths で絞らない: required check にしたとき、.github/ を触らない PR で check が
+# 保留のまま残りマージできなくなるため（数秒で終わるので毎回走らせても負担はない）。
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions: {}
+
+jobs:
+  zizmor:
+    name: zizmor
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: zizmorcore/zizmor-action@45d7276c9ca790aabd705e31ca99c6185c3e76dd # v0.8.1
+        with:
+          # mise.toml の zizmor と版を揃える（latest だと監査ルールの追加で突然落ちる）
+          version: 1.32.0
+          # Code Scanning（SARIF）ではなく PR 上の annotation で示し、指摘があればジョブを失敗させる。
+          # SARIF モードは security-events: write が要るうえ、マージを止めるには
+          # Code Scanning 側のルール設定も別途必要になるため、ジョブの成否で判定する方式に寄せる。
+          advanced-security: false
+          annotations: true

@@ -9,3 +9,6 @@ uv = "latest"
 # just は版を固定する: justfile が [script] 属性・ignore-comments など版依存の機能を使うため、
 # latest で挙動が変わって CI だけ壊れるのを避ける。
 just = "1.59.0"
+# zizmor は CI（.github/workflows/zizmor.yml の version）と版を揃える。
+# 版が違うと監査ルールの差でローカルと CI の結果が食い違うため。
+zizmor = "1.32.0"

@@ -26,6 +26,10 @@ lint:
     uv run ruff check .
     pnpm exec biome lint .
 
+# GitHub Actions の静的解析（zizmor）。GH_TOKEN があれば impostor-commit 等のオンライン監査も走る
+lint-actions:
+    zizmor .github
+
 # フォーマット自動修正（書き込み・ローカル整形。Python: ruff format / TS: Biome）
 format:
     uv run ruff format .

@@ -18,16 +18,19 @@ runs:
         restore-keys: |
           uv-${{ runner.os }}-
 
-    # pnpm store のパスを解決（mise 導入の pnpm を使用）
+    # pnpm store のパスを解決（mise 導入の pnpm を使用）。
+    # GITHUB_ENV ではなく step output で渡す: GITHUB_ENV は後続の全ステップの環境変数になり、
+    # 値を操作されると LD_PRELOAD 等でコード実行に繋がるため（zizmor: github-env）。
     - name: Resolve pnpm store path
+      id: pnpm-store
       shell: bash
-      run: echo "PNPM_STORE_PATH=$(pnpm store path --silent)" >> "$GITHUB_ENV"
+      run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
 
     # pnpm store のキャッシュ（pnpm-lock.yaml 変化で更新）
     - name: Cache pnpm store
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: ${{ env.PNPM_STORE_PATH }}
+        path: ${{ steps.pnpm-store.outputs.path }}
         key: pnpm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
         restore-keys: |
           pnpm-${{ runner.os }}-
