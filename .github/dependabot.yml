@@ -8,6 +8,11 @@ updates:
       - "/.github/actions/setup" # 共用 composite（mise-action / cache）
     schedule:
       interval: weekly
+    # 公開から 7 日未満のリリースは PR にしない。乗っ取られたメンテナが正規タグで
+    # 悪性リリースを出した場合、SHA 検証（zizmor）は素通りするため、発覚・撤回されるまでの
+    # 猶予期間で防ぐ。侵害リリースは数時間〜数日で発覚することが多いので 7 日とする。
+    cooldown:
+      default-days: 7
     groups:
       # 更新 PR をまとめてノイズを抑える
       actions:
