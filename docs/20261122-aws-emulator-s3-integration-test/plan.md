@@ -80,7 +80,7 @@ Parquet を読み書きするのに必要な設定が分かっている。
 停止までが通る。通常の `task test` / `task check` は従来と変わらない。
 
 ### TaskList
-- [ ] `DuckDbConfig` に S3 接続上書きのフィールドを追加する（`packages/infrastructure/src/infrastructure/duckdb_store.py`）。
+- [x] `DuckDbConfig` に S3 接続上書きのフィールドを追加する（`packages/infrastructure/src/infrastructure/duckdb_store.py`）。
   - 候補は `s3_endpoint` / `s3_url_style` / `ca_cert_file` で、どれも既定は None。実際に足すのは Phase 1 で必要と
     分かったものだけにする。
   - `_connect` は、設定されたときだけ `CREATE SECRET` にオプションを付ける。未設定なら従来と同じ SQL を使う。
@@ -89,11 +89,11 @@ Parquet を読み書きするのに必要な設定が分かっている。
       S3 は `read_parquet(...) LIMIT 0` を試し、`HTTPException` の 404 を未存在と判定する（`_exists_s3`）。
       エミュレータで、修正前は初回 save が 404 で落ち、修正後は空 / 初回 save / round-trip / upsert が通ることを確認した。
       統合テスト（下記）で回帰を防ぐ。
-- [ ] 単体テストを追加する。上書きを設定しないとき、S3 用 SECRET の SQL が従来と同じになることを確かめる（R5）。
+- [x] 単体テストを追加する。上書きを設定しないとき、S3 用 SECRET の SQL が従来と同じになることを確かめる（R5）。
       SQL の組み立てを純粋関数に切り出すと、S3 なしで検証できる。
-- [ ] pytest に `emulator` マーカーを登録する（ルートの `pyproject.toml`）。通常の実行では `-m "not emulator"`
+- [x] pytest に `emulator` マーカーを登録する（ルートの `pyproject.toml`）。通常の実行では `-m "not emulator"`
       で除外する（R3）。
-- [ ] 統合テストを `packages/infrastructure/tests/integration/test_duckdb_store_s3.py` などに追加する。
+- [x] 統合テストを `packages/infrastructure/tests/integration/test_duckdb_store_s3.py` などに追加する。
   - 接続情報の環境変数がなければ、モジュールごと skip する（R4）。
   - fixture でテストごとにユニークなバケットを boto3 で作り、location を `s3://<bucket>/assets.parquet` にする（R6）。
   - httpfs / aws 拡張は、ローカルの固定ディレクトリへ fixture で INSTALL する。初回だけネットワークが必要。
@@ -101,14 +101,21 @@ Parquet を読み書きするのに必要な設定が分かっている。
   - 既存の `infrastructure/tests/conftest.py` は、AWS のダミー認証情報を autouse で入れている。これが
     エミュレータの資格情報を上書きしないように、統合テスト側で打ち消す。
   - 対象は R2 の 3 ケース: round-trip（負の損益を含む）、未存在のとき空、同じ基準日の冪等 upsert。
-- [ ] Taskfile に `test:emulator` を追加する。手順は `emulator:up`、環境変数の読み込み、`uv run pytest -m emulator`、
+- [x] Taskfile に `test:emulator` を追加する。手順は `emulator:up`、環境変数の読み込み、`uv run pytest -m emulator`、
       `emulator:down` の順。テストが失敗しても down は必ず実行する（R1）。
-- [ ] CLAUDE.md の「よく使うコマンド」に `task test:emulator` と前提（colima / Docker の起動）を追記する。
+- [x] CLAUDE.md の「よく使うコマンド」に `task test:emulator` と前提（colima / Docker の起動）を追記する。
 
 ### Verification
-- [ ] colima を起動した状態で `task test:emulator` を実行すると、統合テスト 3 件が pass し、終了後にコンテナが残っていない。
-- [ ] テストを 1 件わざと失敗させても、`task test:emulator` のあとにコンテナが残っていない。
-- [ ] `task test:emulator` を続けて 2 回実行しても、2 回とも pass する（R6）。
-- [ ] エミュレータを起動せずに `uv run pytest -m emulator` を実行すると、統合テストが skip になる（R4）。
-- [ ] `task check` が通り、統合テストが収集・実行されていない（出力に emulator のテストが出ない）（R3）。
-- [ ] 上書き未設定のときの SQL 単体テストが通る（R5）。既存の `test_duckdb_store.py` も変更なしで通る。
+- [x] colima を起動した状態で `task test:emulator` を実行すると、統合テスト 3 件が pass し、終了後にコンテナが残っていない。
+- [x] テストを 1 件わざと失敗させても、`task test:emulator` のあとにコンテナが残っていない。
+- [x] `task test:emulator` を続けて 2 回実行しても、2 回とも pass する（R6）。
+- [x] エミュレータを起動せずに `uv run pytest -m emulator` を実行すると、統合テストが skip になる（R4）。
+- [x] `task check` が通り、統合テストが収集・実行されていない（出力に emulator のテストが出ない）（R3）。
+- [x] 上書き未設定のときの SQL 単体テストが通る（R5）。既存の `test_duckdb_store.py` も変更なしで通る。
+
+### Phase 2 の結果
+- `DuckDbConfig` に `s3_endpoint` / `s3_url_style` / `ca_cert_file` を追加。SECRET の SQL は純粋関数 `build_s3_secret_sql` に切り出した。
+- `emulator` マーカーを登録し、`addopts` の `-m 'not emulator'` で除外。`-m emulator` で上書きできる。
+- `task test:emulator` は up 失敗・テスト失敗のどちらでも down を実行し、元の終了コードを返す。
+  このタスクの pytest は `--no-cov`（カバレッジは統合テスト 3 件だけでは意味がないため）。
+- infra のスナップショットは、Python コード変更による ImageUri のハッシュ差分のみ（想定内）を更新した。

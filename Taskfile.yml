@@ -89,6 +89,19 @@ tasks:
     cmds:
       - docker rm -f idash-aws-emulator >/dev/null 2>&1 || true
 
+  test:emulator:
+    desc: "S3 統合テスト（AWS Emulator を起動して pytest -m emulator → 停止。要 colima / Docker）"
+    cmds:
+      # up が途中で失敗しても、テストが失敗しても down を必ず実行し、元の終了コードを返す。
+      - cmd: |
+          rc=0
+          task emulator:up && {
+            . scripts/emulator.env.sh
+            uv run pytest -m emulator --no-cov
+          } || rc=$?
+          task emulator:down
+          exit $rc
+
   build-front:
     desc: "フロントエンドをビルド（生成型で tsc + vite build。IdashFrontendStack の dist 元）"
     deps: [gen-types]
