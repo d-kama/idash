@@ -1,0 +1,7 @@
+# zizmor の監査設定。CI（.github/workflows/zizmor.yml）と `just lint-actions` の両方が自動で読み込む。
+rules:
+  # TODO: `uses: $/...`（2026-07 に GitHub が追加した同一リポジトリ参照の構文）が
+  # 動くことを実機の CI で確認できたら、`./.github/actions/setup` を `$/...` に移行し、この無効化を外す。
+  # 現状は checkout 直後に呼ぶだけで、間にワークスペースを書き換えるステップがないため実害は小さい。
+  self-repository:
+    disable: true
