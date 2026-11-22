@@ -72,9 +72,24 @@ class DuckDbAssetRepository:
         return con
 
     def _exists(self, con: duckdb.DuckDBPyConnection) -> bool:
-        # glob はローカル/S3 を統一的に扱える。未存在なら 0 件。
+        if self._is_s3:
+            return self._exists_s3(con)
+        # ローカルは glob で判定する（未存在なら 0 件）。
         row = con.execute(f"SELECT count(*) FROM glob({self._quoted_location})").fetchone()
         return row is not None and row[0] > 0
+
+    def _exists_s3(self, con: duckdb.DuckDBPyConnection) -> bool:
+        # 罠: httpfs の glob はワイルドカードを含まない S3 パスを存在確認せずそのまま 1 件返す。
+        # そのため実際に読みにいき、404 を未存在と判定する。S3 が未存在キーに 403 でなく 404 を
+        # 返すのは実行ロールに ListBucket がある場合だけ（CDK の grantRead/grantReadWrite が付与）。
+        # バケット自体が無い場合も 404 になり未存在扱いになるが、save はその後の COPY で失敗する。
+        try:
+            con.execute(f"SELECT * FROM read_parquet({self._quoted_location}) LIMIT 0")  # noqa: S608
+        except duckdb.HTTPException as exc:
+            if getattr(exc, "status_code", None) == 404:
+                return False
+            raise
+        return True
 
     @property
     def _quoted_location(self) -> str:
