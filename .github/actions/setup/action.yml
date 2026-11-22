@@ -1,12 +1,12 @@
 name: Setup toolchain & install
 description: >-
-  mise でツールチェーン（python/node/uv/pnpm/task）を導入し、frozen install で
+  mise でツールチェーン（python/node/uv/pnpm/just）を導入し、frozen install で
   依存を解決する。uv / pnpm のキャッシュも復元する。check / deploy ジョブで共用。
 
 runs:
   using: composite
   steps:
-    # mise.toml を単一ソースに python/node/uv/pnpm/task を導入（ローカルと同一手順）
+    # mise.toml を単一ソースに python/node/uv/pnpm/just を導入（ローカルと同一手順）
     - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
 
     # uv のダウンロードキャッシュ（uv.lock 変化で更新）
@@ -35,4 +35,4 @@ runs:
     # frozen install（lockfile ドリフトを検知して落とす）
     - name: Install dependencies (frozen)
       shell: bash
-      run: task setup:ci
+      run: just setup-ci

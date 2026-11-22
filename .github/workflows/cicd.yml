@@ -27,8 +27,8 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - run: task check
-      - run: task synth
+      - run: just check
+      - run: just synth
 
   deploy:
     name: cdk deploy (dev)
@@ -56,4 +56,4 @@ jobs:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-northeast-1
       # CDK は bootstrap ロールを assume して deploy（対象は現状 IdashBatchStack のみ）
-      - run: task deploy
+      - run: just deploy
