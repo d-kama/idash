@@ -6,4 +6,7 @@ uv = "latest"
 # 版は固定する: latest だと CI が pnpm 11 系を引き込み、build script 承認機構
 # （onlyBuiltDependencies / allowBuilds）の差異で frozen install が壊れるため。
 "npm:pnpm" = "10.30.3"
+# just は版を固定する: justfile が [script] 属性・ignore-comments など版依存の機能を使うため、
+# latest で挙動が変わって CI だけ壊れるのを避ける。
+just = "1.59.0"
 task = "latest"
