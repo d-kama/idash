@@ -236,7 +236,8 @@ def test_session_settings_applied_and_round_trip(tmp_path: Path) -> None:
 
 
 def test_s3_secret_sql_is_unchanged_without_overrides() -> None:
-    # 上書き未設定なら本番と同じ SQL（R5）。
+    # 本番は S3 接続上書きを設定しない。統合テスト用の上書きを足しても、本番の SQL
+    # （実 AWS 向け・実行ロール認証）が変わらないことを固定する。
     sql = build_s3_secret_sql(DuckDbConfig(location="s3://b/k.parquet"))
 
     assert sql == "CREATE SECRET (TYPE s3, PROVIDER credential_chain)"
