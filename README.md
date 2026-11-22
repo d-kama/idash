@@ -39,7 +39,7 @@ idash/
 ## 前提ツール
 
 ツールのバージョンは [mise](https://mise.jdx.dev/) で固定している（`mise.toml`）。
-mise を導入後、リポジトリルートで以下を実行すると python / node / uv / pnpm / task が揃う。
+mise を導入後、リポジトリルートで以下を実行すると python / node / uv / pnpm / just が揃う。
 
 ```bash
 mise install
@@ -48,31 +48,31 @@ mise install
 ## セットアップ
 
 ```bash
-mise install   # ツール（python/node/uv/pnpm/task）を導入
-task setup     # 依存解決（uv sync && pnpm install）
+mise install   # ツール（python/node/uv/pnpm/just）を導入
+just setup     # 依存解決（uv sync && pnpm install）
 ```
 
 ## タスク一覧
 
-[go-task](https://taskfile.dev/)（`Taskfile.yml`）で横断タスクを管理する。
+[just](https://just.systems/)（`justfile`）で横断タスクを管理する。引数なしの `just` でレシピ一覧を表示する。
 
-| タスク | 内容 |
+| レシピ | 内容 |
 |--------|------|
-| `task setup` | 依存解決（`uv sync` + `pnpm install`） |
-| `task lint` | Lint（静的解析のみ・書き換えなし。Python: ruff / TS: Biome） |
-| `task format` | フォーマット自動修正（書き込み・ローカル整形。Python: ruff format / TS: Biome） |
-| `task typecheck` | 型チェック（Python: ty / TS: tsc） |
-| `task test` | テスト（pytest + infra Vitest スナップショット） |
-| `task synth` | CDK synth（build-front 依存。CloudFormation テンプレート生成。AWS 認証不要） |
-| `task check` | lint + フォーマット検証 + typecheck + test を一括実行（CI と同じ検証） |
-| `task gen-types` | Pydantic → OpenAPI → TS 型を生成（生成物は非コミット。frontend が import） |
-| `task build-front` | フロントエンドをビルド（gen-types 依存。IdashFrontendStack の dist 元） |
-| `task bff` | BFF をローカル起動（uvicorn。既定でローカル Parquet `data/assets.parquet` を read） |
-| `task front` | フロントエンドをローカル起動（vite dev。`/api` を `task bff` へプロキシ） |
-| `task deploy` | CDK デプロイ（build-front 依存。要 AWS 認証） |
+| `just setup` | 依存解決（`uv sync` + `pnpm install`） |
+| `just lint` | Lint（静的解析のみ・書き換えなし。Python: ruff / TS: Biome） |
+| `just format` | フォーマット自動修正（書き込み・ローカル整形。Python: ruff format / TS: Biome） |
+| `just typecheck` | 型チェック（Python: ty / TS: tsc） |
+| `just test` | テスト（pytest + infra Vitest スナップショット） |
+| `just synth` | CDK synth（build-front 依存。CloudFormation テンプレート生成。AWS 認証不要） |
+| `just check` | lint + フォーマット検証 + typecheck + test を一括実行（CI と同じ検証） |
+| `just gen-types` | Pydantic → OpenAPI → TS 型を生成（生成物は非コミット。frontend が import） |
+| `just build-front` | フロントエンドをビルド（gen-types 依存。IdashFrontendStack の dist 元） |
+| `just bff` | BFF をローカル起動（uvicorn。既定でローカル Parquet `data/assets.parquet` を read） |
+| `just front` | フロントエンドをローカル起動（vite dev。`/api` を `just bff` へプロキシ） |
+| `just deploy` | CDK デプロイ（build-front 依存。要 AWS 認証） |
 
-> `task setup` 直後は生成型（`schema.d.ts`）が無いため frontend の IDE 型エラーが出る。
-> `task gen-types`（または `task typecheck`）を一度実行すると解消する。
+> `just setup` 直後は生成型（`schema.d.ts`）が無いため frontend の IDE 型エラーが出る。
+> `just gen-types`（または `just typecheck`）を一度実行すると解消する。
 
 ## infra（AWS CDK）
 
@@ -93,7 +93,7 @@ Frontend の順にプロパティ渡しで配線する（`infra/bin/app.ts`）�
 
 ```bash
 # 構成確認（CloudFormation テンプレート生成。AWS 認証不要）
-task synth
+just synth
 # または
 pnpm --filter @idash/infra exec cdk synth
 
@@ -132,9 +132,9 @@ aws login   # またはプロファイルを利用
 pnpm --filter @idash/infra exec cdk bootstrap aws://<ACCOUNT_ID>/ap-northeast-1
 
 # 3) デプロイ（フロント dist ビルド → 全スタック）
-task deploy
+just deploy
 # cdk を直接叩く場合も dist が要るので build-front を先に実行する:
-#   task build-front && pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
+#   just build-front && pnpm --filter @idash/infra exec cdk deploy --all --require-approval never
 ```
 
 #### 事前: bootstrap ECR のライフサイクル（IaC 外・手動・要注意）
@@ -157,7 +157,7 @@ aws ecr put-lifecycle-policy --region ap-northeast-1 \
   --lifecycle-policy-text '{"rules":[{"rulePriority":1,"description":"keep 2 assets x 2 generations","selection":{"tagStatus":"any","countType":"imageCountMoreThan","countNumber":4},"action":{"type":"expire"}}]}'
 ```
 
-イメージを消してしまった場合の復旧は **①ライフサイクルを直す → ②`task deploy` でイメージを再 push →
+イメージを消してしまった場合の復旧は **①ライフサイクルを直す → ②`just deploy` でイメージを再 push →
 ③各関数にタグを再解決させる**（下記）の順。**②だけでは直らない**: アセットハッシュ＝タグが同じだと
 CloudFormation に差分が出ず関数が更新されないため、消えた digest を掴んだままになる。
 

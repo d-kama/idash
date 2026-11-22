@@ -92,7 +92,7 @@ export class IdashFrontendStack extends Stack {
     });
 
     // ビルド済み dist を配備し、デプロイ時に CloudFront をインバリデートする。
-    // synth 時に dist の存在が必要（Taskfile で synth を build-front に依存させる）。
+    // synth 時に dist の存在が必要（justfile で synth を build-front に依存させる）。
     new BucketDeployment(this, 'DeploySite', {
       sources: [Source.asset(path.join(__dirname, '../../apps/frontend/dist'))],
       destinationBucket: siteBucket,

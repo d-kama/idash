@@ -19,7 +19,7 @@ dev = [
     "pytest-cov",
     "moto",
     "httpx",  # FastAPI TestClient（BFF テスト）が要求する HTTP クライアント
-    "uvicorn",  # ローカル BFF 起動（task bff）用。Lambda は Mangum のため本番イメージには含めない
+    "uvicorn",  # ローカル BFF 起動（just bff）用。Lambda は Mangum のため本番イメージには含めない
     # ワークスペース全メンバーを dev に editable 投入する。これにより `uv sync` 後の
     # `uv run`（pytest / ty / ruff）が src レイアウトの各パッケージを import 解決できる。
     # プレーンな `uv sync` は依存されていないメンバーを prune するため、テスト・型チェックを
@@ -67,8 +67,8 @@ python-version = "3.13"
 
 [tool.pytest.ini_options]
 # emulator マーカー（AWS Emulator 必須の統合テスト）は通常実行から除く。`-m emulator` で上書きできる
-# （同じオプションは後勝ち）。実行は `task test:emulator`。
+# （同じオプションは後勝ち）。実行は `just test-emulator`。
 addopts = "-m 'not emulator' --import-mode=importlib --cov=domain --cov=application --cov=infrastructure --cov=common --cov=batch --cov-report=term-missing"
 testpaths = ["packages", "apps"]
-markers = ["emulator: AWS Emulator（task emulator:up）が必要な統合テスト。通常実行では除外"]
+markers = ["emulator: AWS Emulator（just emulator-up）が必要な統合テスト。通常実行では除外"]
 # カバレッジ（pytest-cov）はレポートのみ。閾値（--cov-fail-under）は設けない。

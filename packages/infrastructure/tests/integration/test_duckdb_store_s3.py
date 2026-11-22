@@ -1,6 +1,6 @@
 """DuckDbAssetRepository の S3 経路を AWS Emulator に対して検証する統合テスト。
 
-`task test:emulator` で起動・環境変数の読み込み・停止まで行う。エミュレータの接続情報がなければ
+`just test-emulator` で起動・環境変数の読み込み・停止まで行う。エミュレータの接続情報がなければ
 モジュールごと skip する。
 
 実 AWS へは絶対に向けない。fixture はダミーキーを消すため、接続先を誤ると `~/.aws/credentials` の
@@ -44,7 +44,7 @@ pytestmark = [
     pytest.mark.emulator,
     pytest.mark.skipif(
         _emulator_endpoint_url() is None,
-        reason="AWS Emulator のループバック接続情報がない（task test:emulator で実行する）",
+        reason="AWS Emulator のループバック接続情報がない（just test-emulator で実行する）",
     ),
 ]
 

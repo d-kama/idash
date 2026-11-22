@@ -44,8 +44,8 @@
 | TS 型チェック | **tsc**（`tsconfig.base.json` 継承） | - |
 | infra テスト | **Vitest**（スナップショット） | `aws-cdk-lib/assertions` を使用 |
 | CDK アプリ実行 | **tsx**（`cdk.json` の `app`） | ts-node 不使用 |
-| タスクランナー | **go-task**（`Taskfile.yml`） | mise で版管理 |
-| ツール版固定 | **mise**（`mise.toml`） | python/node/uv/pnpm/task を pin |
+| タスクランナー | **just**（`justfile`） | mise で版固定。go-task から移行（ADR-0008） |
+| ツール版固定 | **mise**（`mise.toml`） | python/node/uv/pnpm/just を pin |
 
 - パッケージ命名: import 名は接頭辞なし（`domain` 等）、配布名は `idash-*`、src レイアウト。
 - 内部依存は `[tool.uv.sources]` の `workspace = true` で配線（依存方向は §4 のグラフに準拠）。
@@ -195,11 +195,11 @@ idash/
 ├── package.json                # pnpm ルート（Biome / typescript devDeps）
 ├── uv.lock
 ├── pnpm-lock.yaml
-├── mise.toml                   # ツール版固定（python/node/uv/pnpm/task）
+├── mise.toml                   # ツール版固定（python/node/uv/pnpm/just）
 ├── biome.json                  # TS lint + format
 ├── tsconfig.base.json          # TS 共有設定
 ├── scripts/                    # 横断スクリプト（run_collect_local.py 等）
-├── Taskfile.yml                # 横断タスク（go-task）
+├── justfile                    # 横断タスク（just）
 └── PROJECT_PLAN.md             # 本ドキュメント
 ```
 
@@ -317,7 +317,11 @@ sequenceDiagram
 
 ---
 
-## 6. 横断タスク（Taskfile）
+## 6. 横断タスク（justfile）
+
+> 2026-11-22 に go-task（`Taskfile.yml`）から just（`justfile`）へ移行した（ADR-0008）。以下の YAML は
+> 移行前の初期構成の記録で、現行の定義は `justfile` を正とする。コロン付きのタスク名はケバブケースへ改名した
+> （例: `setup:ci` → `setup-ci`、`test:emulator` → `test-emulator`）。
 
 > 「いま動くタスク」のみ実装し、各アプリ実装が入る後続フェーズで将来タスクを有効化する方針（将来タスクはコメント据置）。
 
@@ -343,7 +347,7 @@ tasks:
 ```
 
 Phase 5/6 で有効化済み: `gen-types`（Pydantic→OpenAPI→TS）/ `build-front`（gen-types 依存）/
-`synth`・`deploy`（build-front 依存・`--all`）/ `bff`・`front`（各ローカル実行）。`task test` は
+`synth`・`deploy`（build-front 依存・`--all`）/ `bff`・`front`（各ローカル実行）。`just test` は
 infra/frontend の Vitest も含む。
 
 実 deploy（認証後・参考）:

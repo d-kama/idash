@@ -59,7 +59,7 @@ def get_origin_secret() -> str | None:
     """origin-verify の期待値（SSM SecureString）を返す。未設定なら None（検証無効）。
 
     CloudFront 経由限定化（ADR-0006）。CloudFront Function が正規リクエストにのみ注入する
-    `x-origin-verify` を照合する。ローカル `task bff` 等 `ORIGIN_VERIFY_PARAM_ARN` 未設定では
+    `x-origin-verify` を照合する。ローカル `just bff` 等 `ORIGIN_VERIFY_PARAM_ARN` 未設定では
     None を返し検証しない。コールドスタート時に1回だけ SSM を引く（`functools.cache`）。
     """
     settings = BffSettings.from_env()

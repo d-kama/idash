@@ -13,22 +13,22 @@ idash は iDeCo（個人型確定拠出年金）の運用状況を定期収集�
 バージョンは **mise**（`mise.toml`）で固定する。`pnpm` は **10.30.3 にピン留め**してあり、安易に上げない（v11 系は build script 承認機構が変わり frozen install が壊れる）。
 
 ```bash
-mise install   # python / node / uv / pnpm / task を導入
-task setup     # 依存解決（uv sync && pnpm install）
+mise install   # python / node / uv / pnpm / just を導入
+just setup     # 依存解決（uv sync && pnpm install）
 ```
 
 ## よく使うコマンド
 
-横断タスクは **go-task**（`Taskfile.yml`）に集約。個別言語ツールを直接叩く必要は基本ない。
+横断タスクは **just**（`justfile`）に集約（ADR-0008）。引数なしの `just` でレシピ一覧を表示する。個別言語ツールを直接叩く必要は基本ない。
 
 ```bash
-task check       # lint + フォーマット検証 + typecheck + test を一括（CI と同じ検証）
-task lint        # ruff check + biome lint（静的解析のみ・書き換えなし）
-task format      # ruff format + biome format --write（ローカル整形・書き込み）
-task typecheck   # ty check（Python）+ tsc（TS, pnpm -r run typecheck）
-task test        # pytest + infra Vitest
-task test:emulator  # S3 経路の統合テスト（AWS Emulator を起動→pytest -m emulator→停止。要 colima / Docker 起動）
-task synth       # CDK synth（CloudFormation 生成、AWS 認証不要）
+just check       # lint + フォーマット検証 + typecheck + test を一括（CI と同じ検証）
+just lint        # ruff check + biome lint（静的解析のみ・書き換えなし）
+just format      # ruff format + biome format --write（ローカル整形・書き込み）
+just typecheck   # ty check（Python）+ tsc（TS, pnpm -r run typecheck）
+just test        # pytest + infra Vitest
+just test-emulator  # S3 経路の統合テスト（AWS Emulator を起動→pytest -m emulator→停止。要 colima / Docker 起動）
+just synth       # CDK synth（CloudFormation 生成、AWS 認証不要）
 ```
 
 ### 単体テスト実行
@@ -43,7 +43,7 @@ pnpm --filter @idash/infra test
 pnpm --filter @idash/infra run test:update   # スナップショット更新（-u）
 ```
 
-`task test` はワークスペース全体（`testpaths = ["packages", "apps"]`）を `uv run pytest` で一括収集・実行し、続けて infra の Vitest（スナップショット）を走らせる。
+`just test` はワークスペース全体（`testpaths = ["packages", "apps"]`）を `uv run pytest` で一括収集・実行し、続けて infra の Vitest（スナップショット）を走らせる。
 
 ## アーキテクチャ
 
@@ -89,7 +89,7 @@ infrastructure        application（+ schemas に依存）
 
 ## CI/CD
 
-`.github/workflows/cicd.yml` の単一ワークフロー。全トリガで `task check` + `task synth` を走らせ、deploy は **`main` への push と `workflow_dispatch`（どちらも main ref のみ）**で実行。AWS 認証は **GitHub OIDC の短命トークン**で、静的キーは持たない（ADR-0001）。ロール ARN は repo Variable `AWS_DEPLOY_ROLE_ARN`。OIDC provider / IAM ロール / `cdk bootstrap` は AWS 側で事前準備済み（本リポジトリの IaC 管理外）。
+`.github/workflows/cicd.yml` の単一ワークフロー。全トリガで `just check` + `just synth` を走らせ、deploy は **`main` への push と `workflow_dispatch`（どちらも main ref のみ）**で実行。AWS 認証は **GitHub OIDC の短命トークン**で、静的キーは持たない（ADR-0001）。ロール ARN は repo Variable `AWS_DEPLOY_ROLE_ARN`。OIDC provider / IAM ロール / `cdk bootstrap` は AWS 側で事前準備済み（本リポジトリの IaC 管理外）。
 
 ## プロジェクトのドキュメント運用
 
