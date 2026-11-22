@@ -27,6 +27,7 @@ task lint        # ruff check + biome lint（静的解析のみ・書き換え�
 task format      # ruff format + biome format --write（ローカル整形・書き込み）
 task typecheck   # ty check（Python）+ tsc（TS, pnpm -r run typecheck）
 task test        # pytest + infra Vitest
+task test:emulator  # S3 経路の統合テスト（AWS Emulator を起動→pytest -m emulator→停止。要 colima / Docker 起動）
 task synth       # CDK synth（CloudFormation 生成、AWS 認証不要）
 ```
 

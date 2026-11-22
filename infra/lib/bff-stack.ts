@@ -88,7 +88,8 @@ export class IdashBffStack extends Stack {
       },
     });
 
-    // データストアは read のみ（可視化は集計して返すだけ・書き込まない）。glob の LIST も含む。
+    // データストアは read のみ（可視化は集計して返すだけ・書き込まない）。未存在を 404 で判定するための
+    // ListBucket も含む。
     dataBucket.grantRead(bffFn);
 
     // origin-verify の期待値を読む（aws/ssm マネージドキーのため kms:Decrypt の明示付与は不要）。

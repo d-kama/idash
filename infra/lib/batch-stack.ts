@@ -146,7 +146,8 @@ export class IdashBatchStack extends Stack {
     errorPageBucket.grantWrite(collectFn);
 
     // データストアは read-modify-write（既存 read → 全件上書き）のため read/write 両方。
-    // glob の LIST も grantReadWrite に含まれる。
+    // ListBucket も grantReadWrite に含まれる。未存在の Parquet が 403 でなく 404 になり、
+    // 初回 save を「既存なし」と判定できるために必要（DuckDbAssetRepository._exists_s3）。
     dataBucket.grantReadWrite(collectFn);
 
     // 失敗検知アラーム（collect）。例外・timeout・OOM・起動失敗を一律 Lambda `Errors` で拾う。
@@ -197,7 +198,8 @@ export class IdashBatchStack extends Stack {
     // エラーページ S3 は notify では使わないため付与しない。
     notifyLineParam.grantRead(notifyFn);
 
-    // データストアは read のみ（直近 N 日の集計）。glob の LIST も grantRead に含まれる。
+    // データストアは read のみ（直近 N 日の集計）。未存在を 404 で判定するための ListBucket も
+    // grantRead に含まれる。
     dataBucket.grantRead(notifyFn);
 
     // 失敗検知アラーム（notify）。collect と別アラームにし、どちらが落ちたか即わかるようにする。

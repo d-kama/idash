@@ -66,6 +66,9 @@ select = ["E", "F", "I", "UP", "B"]
 python-version = "3.13"
 
 [tool.pytest.ini_options]
-addopts = "--import-mode=importlib --cov=domain --cov=application --cov=infrastructure --cov=common --cov=batch --cov-report=term-missing"
+# emulator マーカー（AWS Emulator 必須の統合テスト）は通常実行から除く。`-m emulator` で上書きできる
+# （同じオプションは後勝ち）。実行は `task test:emulator`。
+addopts = "-m 'not emulator' --import-mode=importlib --cov=domain --cov=application --cov=infrastructure --cov=common --cov=batch --cov-report=term-missing"
 testpaths = ["packages", "apps"]
+markers = ["emulator: AWS Emulator（task emulator:up）が必要な統合テスト。通常実行では除外"]
 # カバレッジ（pytest-cov）はレポートのみ。閾値（--cov-fail-under）は設けない。
